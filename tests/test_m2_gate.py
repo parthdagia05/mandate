@@ -82,9 +82,13 @@ def test_all_three_benign_tasks_complete():
 
 def test_configs_that_are_not_built_yet_say_so():
     """A config that silently ran as 'undefended' would produce a defended
-    number from an undefended run, which is the worst failure available."""
+    number from an undefended run, which is the worst failure available.
+
+    ``kernel`` arrived in M3 and is no longer on this list. ``model-only`` is
+    M6's arm and still refuses, because a table row for a defence nobody has
+    built yet is worse than a missing row.
+    """
     import pytest
 
-    for config in ("kernel", "model-only"):
-        with pytest.raises(NotImplementedError):
-            run_case("benign-01", config=config, model="scripted")
+    with pytest.raises(NotImplementedError):
+        run_case("benign-01", config="model-only", model="scripted")

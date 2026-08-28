@@ -115,7 +115,14 @@ def _assert_version() -> None:
 def connect(path: str | Path) -> sqlite3.Connection:
     """Open the kernel's database with the pragmas REQ-2 and REQ-5 depend on."""
     _assert_version()
-    conn = sqlite3.connect(str(path), isolation_level=None)
+    # ``check_same_thread=False`` because the API server serves from a thread
+    # other than the one that opened the store. It is not a licence for
+    # concurrency: SQLite has a single writer, the chain allocates ``seq`` by
+    # reading the head and inserting after it, and two interleaved requests
+    # would race on both. The API is single-threaded and serialises dispatch
+    # for exactly that reason (see :mod:`kernel.api`), and SPEC.md §08 runs one
+    # kernel process per run with cases sequential inside it.
+    conn = sqlite3.connect(str(path), isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")

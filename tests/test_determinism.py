@@ -53,6 +53,15 @@ UNSEEDED_RANDOM_MODULES = frozenset({"random", "secrets"})
 #: precisely so that nothing else has to.
 RANDOM_MODULE_ALLOWED_IN = frozenset({"kernel/rng.py"})
 
+#: The one named exemption, anticipated by the comment above ``WALL_CLOCK_CALLS``
+#: and taken in M3 for SPEC.md §07's ``latency_us``. It is deliberately narrow:
+#: one file, one call, and a second test below pins the rule that makes it safe.
+#:
+#: A measured duration may enter a *response*. It may never enter an audit
+#: payload, because two runs of one seed produce byte-identical chains and a
+#: microsecond count is the fastest way to lose that.
+DURATION_EXEMPT = {"kernel/latency.py": frozenset({"time.perf_counter_ns"})}
+
 
 def _relative(path):
     from tests._lint import REPO_ROOT
@@ -63,15 +72,38 @@ def _relative(path):
 @pytest.mark.parametrize("path", kernel_files(), ids=lambda p: p.name)
 def test_no_wall_clock_read(path):
     tree = ast.parse(path.read_text(), filename=str(path))
+    allowed = DURATION_EXEMPT.get(_relative(path), frozenset())
     offenders = [
         f"{name} at line {line}"
         for name, line in called_names(tree)
-        if name in WALL_CLOCK_CALLS
+        if name in WALL_CLOCK_CALLS and name not in allowed
     ]
     assert not offenders, (
         f"{_relative(path)} reads a wall clock: {offenders}. Time comes from "
         "kernel.clock.Clock, which only moves at the control port's barrier."
     )
+
+
+def test_the_duration_exemption_is_only_where_it_says():
+    """The exemption is a file, not a habit.
+
+    ``kernel/latency.py`` may call ``perf_counter_ns``. Nothing else may, and
+    nothing else may call any other wall-clock function either — including
+    ``latency.py`` itself, which is exempted for exactly one name.
+    """
+    import ast as _ast
+
+    from tests._lint import REPO_ROOT
+
+    for rel, allowed in DURATION_EXEMPT.items():
+        path = REPO_ROOT / rel
+        assert path.exists(), f"{rel} is exempted but does not exist"
+        used = {
+            name
+            for name, _ in called_names(_ast.parse(path.read_text()))
+            if name in WALL_CLOCK_CALLS
+        }
+        assert used <= allowed, f"{rel} uses more than its exemption: {used - allowed}"
 
 
 @pytest.mark.parametrize("path", kernel_files(), ids=lambda p: p.name)

@@ -17,6 +17,15 @@ the kernel constructs its own record from it.
 
 The views are structural rather than concrete classes so that a real PSP's SDK
 object can satisfy one without being copied into a schema first.
+
+**Why ``create_order`` takes a keyword-only, optional ``payee``.** A real PSP
+settles to the merchant account its API key belongs to, so a live adapter
+ignores the argument entirely. The simulator needs it named: "where the money
+went" is the variable this whole project measures, and a rail that could only
+ever pay one account would make a redirected payee inexpressible and therefore
+unmeasurable. The kernel passes the cart's payee — the one check 2 has just
+approved — so the account on the rail is the account the mandate authorised
+rather than a default the adapter chose.
 """
 
 from __future__ import annotations
@@ -64,7 +73,12 @@ class PspRefund(Protocol):
 @runtime_checkable
 class PSPAdapter(Protocol):
     def create_order(
-        self, amount_paise: int, currency: str, ref: str
+        self,
+        amount_paise: int,
+        currency: str,
+        ref: str,
+        *,
+        payee: Account | None = None,
     ) -> PspOrder: ...
 
     def authorize(self, order_id: str, instrument: str, idem: str) -> PspPayment: ...

@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from kernel.canonical import jcs
 from kernel.clock import Clock
@@ -101,9 +101,21 @@ class AuditChain:
     recorded, which nothing can resolve.
     """
 
-    def __init__(self, conn: sqlite3.Connection, clock: Clock) -> None:
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        clock: Clock,
+        guard: Callable[[str, str], None] = lambda _store, _op: None,
+    ) -> None:
         self._conn = conn
         self._clock = clock
+        #: The same seam the other stores take, under the name ``audit``. The
+        #: failure suite has to be able to make *this* store unwritable while
+        #: the others still answer: "the chain cannot record" is a different
+        #: failure from "the ledger cannot be read", and REQ-2 is only the
+        #: first of them. No real disk fails on request, so the seam is how the
+        #: test reaches it — and the kernel cannot tell there is one.
+        self._guard = guard
 
     def head(self) -> tuple[int, str]:
         """``(seq of the last entry, its hash)``; ``(-1, GENESIS)`` when empty."""
@@ -117,14 +129,10 @@ class AuditChain:
     def count(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM audit_entry").fetchone()[0]
 
-    def append(
-        self,
-        actor: AuditActor,
-        action: AuditAction,
-        payload: dict[str, Any],
+    def _insert(
+        self, actor: AuditActor, action: AuditAction, payload: dict[str, Any]
     ) -> AuditEntry:
-        """Append one entry and fsync it. Raises if either fails — never returns
-        a decision the chain did not record (REQ-2)."""
+        """Compute the entry and write the row. No transaction of its own."""
         if "sig" in payload:
             # Guard rather than strip: a caller putting a signature in the
             # payload has misunderstood something, and silently dropping it
@@ -134,30 +142,20 @@ class AuditChain:
                 "record the mandate id and a hash instead (SPEC.md §15)"
             )
 
+        self._guard("audit", "write")
         prev_seq, prev_hash = self.head()
         seq = prev_seq + 1
         ts = self._clock.now_rfc3339()
         actor_value, action_value = str(actor), str(action)
-        payload_json = jcs(payload)
         entry_hash = compute_entry_hash(
             seq, ts, actor_value, action_value, payload, prev_hash
         )
-
-        # synchronous=FULL means this COMMIT fsyncs before it returns, which is
-        # the whole of "appended and fsynced before the response returns".
-        self._conn.execute("BEGIN IMMEDIATE")
-        try:
-            self._conn.execute(
-                "INSERT INTO audit_entry"
-                " (seq, ts, actor, action, payload_json, prev_hash, entry_hash)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (seq, ts, actor_value, action_value, payload_json, prev_hash, entry_hash),
-            )
-            self._conn.execute("COMMIT")
-        except Exception:
-            self._conn.execute("ROLLBACK")
-            raise
-
+        self._conn.execute(
+            "INSERT INTO audit_entry"
+            " (seq, ts, actor, action, payload_json, prev_hash, entry_hash)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (seq, ts, actor_value, action_value, jcs(payload), prev_hash, entry_hash),
+        )
         return AuditEntry(
             seq=seq,
             ts=ts,
@@ -167,6 +165,46 @@ class AuditChain:
             prev_hash=prev_hash,
             entry_hash=entry_hash,
         )
+
+    def append(
+        self,
+        actor: AuditActor,
+        action: AuditAction,
+        payload: dict[str, Any],
+    ) -> AuditEntry:
+        """Append one entry and fsync it. Raises if either fails — never returns
+        a decision the chain did not record (REQ-2)."""
+        # synchronous=FULL means this COMMIT fsyncs before it returns, which is
+        # the whole of "appended and fsynced before the response returns".
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            entry = self._insert(actor, action, payload)
+            self._conn.execute("COMMIT")
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+        return entry
+
+    def append_within(
+        self,
+        actor: AuditActor,
+        action: AuditAction,
+        payload: dict[str, Any],
+    ) -> AuditEntry:
+        """Append inside a transaction the caller already opened.
+
+        SPEC.md §08 step 8 requires the idempotency commit, the ledger write and
+        the settle-leg audit entry to be **one** transaction: if the first two
+        can diverge the ledger is fiction, and if the third can land without
+        them the chain records a settlement that did not happen. So the caller
+        owns the ``BEGIN`` and this contributes a row to it.
+
+        It is deliberately not the default. The decision entry in step 6 must
+        commit and fsync *before* the PSP call, on its own; folding that one
+        into a later transaction is exactly the reordering that turns a crash
+        into an unrecorded debit.
+        """
+        return self._insert(actor, action, payload)
 
     def read(self, start: int = 0, end: int | None = None) -> Iterator[AuditEntry]:
         """Stream entries, the same range ``GET /v1/audit/chain`` serves."""
