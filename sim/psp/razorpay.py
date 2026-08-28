@@ -50,7 +50,17 @@ class RazorpayTestMode:
             "between reserve and commit."
         )
 
-    def create_order(self, amount_paise: int, currency: str, ref: str):
+    def create_order(
+        self,
+        amount_paise: int,
+        currency: str,
+        ref: str,
+        *,
+        payee: Account | None = None,
+    ):
+        # Test mode would ignore ``payee`` — a live PSP settles to the account
+        # the API key belongs to. The parameter is here so the signature
+        # matches the protocol rather than diverging silently.
         self._todo("create_order")
 
     def authorize(self, order_id: str, instrument: str, idem: str):

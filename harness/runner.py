@@ -25,11 +25,13 @@ from typing import Any
 
 from agent.llm import SCRIPTED_MODEL_ID, ModelClient, build_model
 from agent.planner import PlanResult, UndefendedAgent
-from agent.tools import UndefendedTools
+from agent.tools import KernelTools, UndefendedTools
 from harness.corpus import AttackCase, Task, load_attack, load_task
+from harness.kernel_arm import KernelArm
 from harness.oracles import oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
+from sim.faults import KernelCrashed
 from sim.world import World
 
 __all__ = ["CONFIGS", "MAX_SETTLE_ADVANCES", "RunRecord", "run_case"]
@@ -63,6 +65,18 @@ class RunRecord:
     plan: dict[str, Any]
     error: str | None = None
     notes: list[str] = field(default_factory=list)
+    #: Kernel arm only: every decision the kernel returned, in order, with its
+    #: reason code and the checks that ran. A denial has to be visible *as a
+    #: decision*; "no money moved" is also what a crashed agent looks like.
+    decisions: list[dict[str, Any]] = field(default_factory=list)
+    #: Kernel arm only: the audit chain this run produced.
+    chain_head: str | None = None
+    chain_entries: int = 0
+    chain_path: str | None = None
+    #: Set when the chain did not verify. A poisoned run is **discarded, not
+    #: reported** — the harness refuses to score it rather than publishing a
+    #: number produced by a kernel whose own record is untrustworthy.
+    poisoned: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(self.__dict__, sort_keys=True)
@@ -117,14 +131,16 @@ def run_case(
     model: str = "auto",
     cassette: Path | None = None,
     export_log: Path | None = None,
+    export_chain: Path | None = None,
+    faults: list[dict[str, Any]] | None = None,
 ) -> RunRecord:
     if config not in CONFIGS:
         raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
-    if config != "undefended":
+    if config == "model-only":
         raise NotImplementedError(
-            f"config {config!r} arrives in a later milestone; M2 ships the "
-            "undefended arm, which is the control the others are measured "
-            "against"
+            "config 'model-only' arrives in M6; it is the arm that measures the "
+            "agent-side taint guard on its own, and reporting it before it "
+            "exists would put a number in the table for a defence nobody built"
         )
 
     task = load_task(task_id)
@@ -134,17 +150,52 @@ def run_case(
     plane = ControlPlane(world)
     if case is not None:
         world.inject(case.injection())
+    # Armed through the control plane rather than by touching the injector,
+    # so a fault armed in a test travels the same path a fault armed over the
+    # socket does. One injector serves both the simulator and the kernel's
+    # store guard, so ``store_unavailable`` reaches whichever it names.
+    for spec in faults or []:
+        plane.fault(spec)
 
     client: ModelClient = build_model(model, cassette)
     # The client_ref is a function of the run, not of the wall clock, so the
     # PSP's idempotency keys are reproducible along with everything else.
     client_ref = f"ref_{sha256_of({'seed': seed, 'task': task_id, 'case': attack_id})[7:23]}"
-    tools = UndefendedTools(world=world, client_ref=client_ref)
+
+    arm: KernelArm | None = None
+    if config == "kernel":
+        arm = KernelArm(task=task, world=world, client_ref=client_ref)
+        tools = KernelTools(
+            world=world,
+            client_ref=client_ref,
+            service=arm.service,
+            credentials=arm.credentials,
+            intent=arm.intent,
+            confirmed_cart=arm.confirmed_cart,
+        )
+    else:
+        tools = UndefendedTools(world=world, client_ref=client_ref)
     agent = UndefendedAgent(model=client, tools=tools)
 
     error: str | None = None
     try:
         plan = agent.run(task.raw)
+    except KernelCrashed as exc:
+        # BaseException on purpose (sim/faults.py): a simulated crash the agent
+        # could catch is not a crash. It is still a real outcome, so it is
+        # recorded rather than raised past the harness.
+        error = f"{type(exc).__name__}: {exc}"
+        plan = PlanResult(
+            task_id=task_id,
+            sku="",
+            line_items=[],
+            total_paise=0,
+            payee={},
+            checkout_payee={},
+            payment=None,
+            model_id=client.model_id,
+            error=error,
+        )
     except Exception as exc:  # noqa: BLE001 — a crashed agent is a real outcome
         error = f"{type(exc).__name__}: {exc}"
         plan = PlanResult(
@@ -160,7 +211,22 @@ def run_case(
         )
 
     _settle(plane)
+    # The rail, not the thing under test. The oracle asks the payment rail
+    # where money went, because a kernel that reported its own ledger would be
+    # scoring its own exam.
     ledger = world.psp.ledger()
+
+    decisions: list[dict[str, Any]] = []
+    chain_head: str | None = None
+    chain_entries = 0
+    chain_path: str | None = None
+    poisoned: str | None = None
+    if arm is not None:
+        decisions = list(getattr(tools, "decisions", []))
+        poisoned = arm.verify()
+        chain_path = str(arm.export(export_chain))
+        chain_head, chain_entries = arm.head()
+        arm.close()
 
     attacker_win = False
     if case is not None:
@@ -175,6 +241,11 @@ def run_case(
         notes.append(
             "model is the deterministic stand-in, not a model measurement; "
             "no ASR figure may be quoted from this run"
+        )
+    if poisoned is not None:
+        notes.append(
+            "the audit chain did not verify; this run is discarded, not "
+            f"reported ({poisoned})"
         )
 
     return RunRecord(
@@ -202,4 +273,9 @@ def run_case(
         },
         error=error,
         notes=notes,
+        decisions=decisions,
+        chain_head=chain_head,
+        chain_entries=chain_entries,
+        chain_path=chain_path,
+        poisoned=poisoned,
     )

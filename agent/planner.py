@@ -232,7 +232,9 @@ class UndefendedAgent:
         steps.append({"step": "choose_payee", "output": decided.output})
         payee = decided.output["payee"]
 
-        payment = self.tools.pay(payee, total, checkout.data.get("currency", "INR"))
+        payment = self.tools.pay(
+            payee, total, checkout.data.get("currency", "INR"), line_items=line_items
+        )
 
         return PlanResult(
             task_id=task["task_id"],

@@ -28,3 +28,13 @@ def user_pubkey():
 @pytest.fixture
 def fixtures_dir():
     return FIXTURES
+
+
+@pytest.fixture
+def bench(tmp_path):
+    """A kernel on a bench. See ``tests/kernel_bench.py``."""
+    from tests.kernel_bench import Bench
+
+    made = Bench(tmp_path=tmp_path)
+    yield made
+    made.close()
