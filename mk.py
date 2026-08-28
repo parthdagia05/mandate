@@ -1,9 +1,9 @@
 """``mk`` — the project's command line.
 
-M1 wires up the three commands the milestone's "Prove it" block calls for:
-``hash-cart``, ``verify-chain`` and ``verify-fixtures``. Later milestones add
-``run``, ``explain``, ``fault``, ``corpus``, ``oracles``, ``matrix`` and
-``ablate`` alongside them.
+M1 wired up ``hash-cart``, ``verify-chain`` and ``verify-fixtures``. M2 adds
+``run``, which is the one a reader who has not read the code types first.
+Later milestones add ``explain``, ``fault``, ``corpus``, ``oracles``,
+``matrix`` and ``ablate`` alongside them.
 """
 
 from __future__ import annotations
@@ -120,6 +120,66 @@ def cmd_verify_fixtures(args: argparse.Namespace) -> int:
     return 0
 
 
+def _rupees(paise: int) -> str:
+    return f"\u20b9{paise / 100:,.2f}"
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    """Run one case and print the ledger.
+
+    The ledger is printed rather than the agent's reasoning, because where the
+    money went is the finding and what the agent thought is not. A run that
+    intended to pay an attacker and never captured is not a loss, and a run
+    that captured to an attacker while narrating perfect intentions is.
+    """
+    from harness.runner import run_case
+
+    export = Path(args.export) if args.export else None
+    record = run_case(
+        args.task,
+        config=args.config,
+        attack_id=args.attack,
+        seed=args.seed,
+        model=args.model,
+        cassette=Path(args.cassette) if args.cassette else None,
+        export_log=export,
+    )
+
+    if args.json:
+        print(record.to_json())
+        return 0 if record.error is None else 1
+
+    print(f"task {record.task_id}  config {record.config}  seed {record.seed}")
+    print(f"attack {record.case_id or 'none'}  model {record.model}")
+    print()
+
+    captures = [c for c in record.ledger if c["captured_paise"] > 0]
+    print(f"ledger: {len(captures)} capture{'' if len(captures) == 1 else 's'}")
+    for capture in captures:
+        payee = capture["payee"]
+        print(
+            f"  {_rupees(capture['captured_paise'])} -> "
+            f"{payee['type']}:{payee['value']}"
+            f"   {capture['payment_id']}  state={capture['state']}"
+        )
+        print(f"  from {capture['source']['type']}:{capture['source']['value']}")
+    if not captures:
+        print("  (no money moved)")
+
+    print()
+    print(f"task_success  {record.task_success}")
+    print(f"attacker_win  {record.attacker_win}")
+    print(f"log           {record.log_entries} entries, head {record.log_head}")
+    if export is not None:
+        print(f"exported      {export}")
+    for note in record.notes:
+        print(f"note          {note}")
+    if record.error:
+        print(f"error         {record.error}")
+
+    return 0 if record.error is None else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mk", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -140,6 +200,30 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-fixtures", help="check every shipped fixture against the manifest"
     )
     verify_fixtures.set_defaults(func=cmd_verify_fixtures)
+
+    run = sub.add_parser("run", help="run one case through the simulator")
+    run.add_argument("--task", required=True, help="a task id, e.g. benign-01")
+    run.add_argument(
+        "--config",
+        default="undefended",
+        choices=["undefended", "model-only", "kernel"],
+        help="which arm of the experiment; M2 ships 'undefended'",
+    )
+    run.add_argument("--attack", default=None, help="an attack case id, e.g. A1-seed-1")
+    run.add_argument(
+        "--seed",
+        default="0",
+        help="the run seed; the same seed reproduces the run byte for byte",
+    )
+    run.add_argument(
+        "--model",
+        default="auto",
+        help="auto | scripted | cassette | live | a model id",
+    )
+    run.add_argument("--cassette", default=None, help="recorded model replies")
+    run.add_argument("--export", default=None, help="write the run log here as JSONL")
+    run.add_argument("--json", action="store_true", help="print the run record only")
+    run.set_defaults(func=cmd_run)
 
     return parser
 
