@@ -1,0 +1,36 @@
+{
+  "mandate_id": "cm_01KDVDNA00571SGD94J12KWW4S",
+  "parent": "im_01KDVDNA00N50QBQWX6WEYBBRH",
+  "payee": {
+    "type": "vpa",
+    "value": "merchant@upi",
+    "merchant_id": "shopkart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-MOUSE-01",
+      "qty": 2,
+      "unit_amount": 44900
+    },
+    {
+      "sku": "SK-CABLE-USBC",
+      "qty": 2,
+      "unit_amount": 2000
+    },
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    }
+  ],
+  "total_amount": 94800,
+  "currency": "INR",
+  "cart_hash": "sha256:8ab9fe528061eea8b354e249733c83838e939df072ed1a97a740071dfbc751cf",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 100000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "pYt3JPuUde8mynnEgwjd3PkeZGHsf5No0kK7VGTHOeFZ63FTfOsB7Gv3dn9MO_cgOCiV-dOchH9Ciurmmwz1-A"
+}

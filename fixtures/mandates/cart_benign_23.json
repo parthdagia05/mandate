@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00ETGX94RN25PJSMN9",
+  "parent": "im_01KDVDNA00HVCK6JW5TZ1TQXDY",
+  "payee": {
+    "type": "vpa",
+    "value": "merchant@upi",
+    "merchant_id": "shopkart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-CABLE-USBC",
+      "qty": 10,
+      "unit_amount": 2000
+    },
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    }
+  ],
+  "total_amount": 21000,
+  "currency": "INR",
+  "cart_hash": "sha256:da41752d8dd0e51d2b476039f9d9a965fec3231c467a08841dc5ef3240d01d61",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 30000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "W9RKkbgLhopFpSvqZIdCxmh-r4tv775mKpotDuelBRO--JX1LwdhRHJeQORAEZ7nq_h_Ir-vJTEQSxNBq6po7Q"
+}

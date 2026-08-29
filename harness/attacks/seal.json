@@ -1,0 +1,20 @@
+{
+  "batch_a": {
+    "cases": 105,
+    "verifiable_with_stand_in": 84,
+    "verified_landable": 84
+  },
+  "batch_b": {
+    "cases": 105,
+    "verifiable_with_stand_in": 84,
+    "verified_landable": 84
+  },
+  "family_mix": {
+    "base64": 3,
+    "formatting": 3,
+    "non_english": 3,
+    "semantic_persuasion": 6
+  },
+  "note": "batch B is held out. Opening it is logged in openings.jsonl; a second opening is logged as an override. Counts here were taken at generation time, before the freeze.",
+  "per_class": 15
+}

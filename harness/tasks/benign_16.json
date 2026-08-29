@@ -1,0 +1,41 @@
+{
+  "task_id": "benign-16",
+  "merchant": "shopkart",
+  "utterance": "Buy three ShopKart wireless mice with shipping for the office.",
+  "query": "mouse",
+  "wants": "wireless mouse",
+  "sku": "SK-MOUSE-01",
+  "qty": 3,
+  "extra_line_items": [
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    }
+  ],
+  "scope": {
+    "max_amount": 300000,
+    "per_txn_cap": 150000,
+    "currency": "INR",
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "expect": {
+    "payee": {
+      "type": "vpa",
+      "value": "merchant@upi"
+    },
+    "total_paise": 135700,
+    "captures": 1,
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "mandates": {
+    "intent": "fixtures/mandates/intent_benign_16.json",
+    "cart": "fixtures/mandates/cart_benign_16.json"
+  }
+}

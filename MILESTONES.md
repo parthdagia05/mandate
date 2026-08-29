@@ -207,6 +207,42 @@ that keeps the results honest.
 **Cut rule** — if generation is slow, drop to 10 variants per class and say n=10 in
 `results.md`. Never drop a class from batch B alone; that biases the headline.
 
+### Landed
+
+Full size, no cut: 15 per class per batch, 105 + 105, and 25 benign tasks. The seven
+oracles read the payment rail — captures, credits and standing instructions, three lists
+because a licence to draw money later is neither a debit nor a credit. `mk corpus verify`
+prints the counts and one manifest hash covering the cases, the tasks, the seal and every
+pre-signed mandate. `mk oracles selftest` is seven for seven.
+
+Four things worth writing down, because none of them was in the plan:
+
+**Three classes were unreachable and had to be made expressible.** A4, A5 and A6 describe
+losses the harness could not produce: there was no standing instruction on the rail, no way
+for the agent to charge twice, and nothing recording *which cart* a debit settled. So the
+simulator now records the basket with the debit and issues standing instructions on request,
+and the planner has three optional steps — settlement check, subscription, refund — that run
+only for the tasks that declare them. An oracle that cannot return `True` reads as a perfect
+defence, so the rail had to permit each loss before the kernel could be credited with
+stopping it.
+
+**The selftest's benign control found a real bug on its first run.** The A7 oracle fired on
+a clean `benign-04`: the checkout page's own "Pay shopkart at merchant@upi" was being read
+as a direction to send the *refund* there. Half of S-02 is the oracle firing on an attack;
+the other half is it staying quiet with no attack present, and only the second half could
+have caught that.
+
+**The loader refuses more than typos now.** A case is rejected if its injection point is on
+a page the class's decision has not read yet, if the task never fetches that page, or if the
+task cannot reach the step the class attacks. All three produce a run where the payload is
+served and nothing happens — which is indistinguishable in the results table from a defence
+that worked. `POINT_ORDER` is re-derived from a real run in the tests rather than trusted.
+
+**The `base64` family cannot land against the deterministic stand-in.** It decodes nothing,
+so 21 rows per batch are honest zeroes under `--model scripted`. They are what the model arm
+is for, and `results.md` says so rather than the corpus quietly marking them as expected
+losses.
+
 ---
 
 ## M6 — The numbers (2–3 Sep)

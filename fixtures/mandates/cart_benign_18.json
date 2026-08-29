@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00JY12TX0SN7H4CAR7",
+  "parent": "im_01KDVDNA00HRTQT7G4WQEMS260",
+  "payee": {
+    "type": "vpa",
+    "value": "merchant@upi",
+    "merchant_id": "shopkart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-MOUSE-01",
+      "qty": 1,
+      "unit_amount": 44900
+    },
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    }
+  ],
+  "total_amount": 45900,
+  "currency": "INR",
+  "cart_hash": "sha256:d62057028652b2745e1aebaebb05673d3715c0ee4e5bb06a6216fba2307bd8af",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 60000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "GcIfiAClxt47_EUXK9gNa-bNjYb2_YNLkI0mshMlIvLcCNkIEhPN8297iYPz2-V-YyfdROaaXyInHKF8jL9dqw"
+}

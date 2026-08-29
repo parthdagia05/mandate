@@ -396,6 +396,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     """
     from harness.runner import run_case
 
+    if args.task is None and args.attack is None:
+        print(
+            "mk run needs --task, or --attack (a case names its own task).",
+            file=sys.stderr,
+        )
+        return 2
+
     export = Path(args.export) if args.export else None
     record = run_case(
         args.task,
@@ -419,16 +426,41 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     captures = [c for c in record.ledger if c["captured_paise"] > 0]
     print(f"ledger: {len(captures)} capture{'' if len(captures) == 1 else 's'}")
+    # Which cart each debit settled, abbreviated. Two debits carrying one hash
+    # is class A6 and is the whole of what its oracle reads; printing the hash
+    # is what makes that visible on screen rather than only in a JSON field.
+    seen_hashes: dict[str, int] = {}
+    for capture in captures:
+        seen_hashes[capture.get("cart_hash") or "-"] = (
+            seen_hashes.get(capture.get("cart_hash") or "-", 0) + 1
+        )
     for capture in captures:
         payee = capture["payee"]
+        cart_hash = capture.get("cart_hash") or "-"
+        repeated = "  <- same cart as another debit" if seen_hashes[cart_hash] > 1 else ""
         print(
             f"  {_rupees(capture['captured_paise'])} -> "
             f"{payee['type']}:{payee['value']}"
             f"   {capture['payment_id']}  state={capture['state']}"
         )
-        print(f"  from {capture['source']['type']}:{capture['source']['value']}")
+        print(
+            f"  from {capture['source']['type']}:{capture['source']['value']}"
+            f"   cart {cart_hash[:19]}{repeated}"
+        )
     if not captures:
         print("  (no money moved)")
+
+    if record.mandates:
+        print()
+        print(f"standing instructions: {len(record.mandates)}")
+        for mandate in record.mandates:
+            print(
+                f"  {mandate['frequency']} up to "
+                f"{_rupees(mandate['max_amount_paise'])} -> "
+                f"{_account(mandate['payee'])}   {mandate['mandate_id']}  "
+                f"state={mandate['state']}"
+            )
+        print("  <- authority that keeps drawing after everyone has stopped looking")
 
     if record.refunds:
         print()
@@ -537,6 +569,106 @@ def cmd_faults(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_corpus(args: argparse.Namespace) -> int:
+    """Count the corpus, then check nothing in it has moved.
+
+    Prints the counts first because they are what a reader wants — 105, 105, 25
+    — and the manifest hash second because it is what ``results.md`` has to
+    quote. Any edit to any task, case, seal or signed fixture changes a file
+    hash, which changes the manifest hash, which fails here by name.
+    """
+    from harness.corpus import CLASSES, batch_b_openings, list_batch, list_tasks, load_attack
+    from harness.manifest import build_manifest, verify_manifest, write_manifest
+
+    if args.freeze:
+        print(f"corpus frozen at {write_manifest()}")
+        return 0
+
+    per_class: dict[str, dict[str, int]] = {klass: {"a": 0, "b": 0} for klass in CLASSES}
+    for batch in ("a", "b"):
+        for case_id in list_batch(batch):
+            per_class[load_attack(case_id).attack_class][batch] += 1
+
+    counts = build_manifest()["counts"]
+    print(f"batch A   {counts['batch_a']:>4} cases")
+    print(f"batch B   {counts['batch_b']:>4} cases  (sealed)")
+    print(f"benign    {counts['tasks']:>4} tasks")
+    print()
+    print("class   batch A   batch B")
+    for klass in CLASSES:
+        print(f"{klass:<8}{per_class[klass]['a']:>7}{per_class[klass]['b']:>10}")
+    print()
+
+    openings = batch_b_openings()
+    if openings:
+        print(f"batch B has been opened {len(openings)} time(s):")
+        for entry in openings:
+            mark = " (override)" if entry["override"] else ""
+            print(f"  {entry['at']}  {entry['who']}: {entry['reason']}{mark}")
+    else:
+        print("batch B has never been opened")
+    print()
+
+    published, differences = verify_manifest()
+    if differences:
+        print(f"manifest {published}")
+        print(f"CORPUS CHANGED — {len(differences)} difference(s):", file=sys.stderr)
+        for difference in differences:
+            print(f"  {difference}", file=sys.stderr)
+        print(
+            "\nAny published number taken against the old hash is now "
+            "unattributable. Re-freeze with `mk corpus verify --freeze` and "
+            "re-run the numbers.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"manifest {published}  (unchanged)")
+    return 0
+
+
+def cmd_oracles(args: argparse.Namespace) -> int:
+    """S-02. Seven rows, and every one of them has to fire.
+
+    An oracle that always returns ``False`` reads as a perfect defence, and an
+    oracle that always returns ``True`` makes every arm look equally lost. The
+    two columns are those two failures, and a row passes only with both.
+    """
+    from harness.selftest import selftest
+
+    rows = selftest(seed=args.seed, model=args.model)
+    print(
+        f"{'class':<6}{'oracle':<38}{'case':<12}"
+        f"{'fires':<7}{'quiet':<7}{'':<2}evidence"
+    )
+    for row in rows:
+        print(
+            f"{row.attack_class:<6}{row.oracle:<38}{row.case_id:<12}"
+            f"{str(row.fired_on_attack).lower():<7}"
+            f"{str(row.quiet_on_benign).lower():<7}"
+            f"{'ok' if row.passed else 'FAIL':<2} "
+            f"{row.error or row.evidence}"
+        )
+
+    passed = sum(row.passed for row in rows)
+    print()
+    print(f"{passed}/{len(rows)} oracles shown to fire against a known-successful attack")
+    if any("stand-in" in note for row in rows for note in row.notes):
+        print(
+            "model is the deterministic stand-in: this is a harness check, not "
+            "a model measurement"
+        )
+    if passed != len(rows):
+        print(
+            "\nAn oracle that cannot fire reads as a perfect defence, and an "
+            "oracle that cannot stay quiet makes every arm look equally lost. "
+            "Neither number may be published.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mk", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -559,14 +691,22 @@ def build_parser() -> argparse.ArgumentParser:
     verify_fixtures.set_defaults(func=cmd_verify_fixtures)
 
     run = sub.add_parser("run", help="run one case through the simulator")
-    run.add_argument("--task", required=True, help="a task id, e.g. benign-01")
+    run.add_argument(
+        "--task",
+        default=None,
+        help="a task id, e.g. benign-01. Optional with --attack: a case names "
+        "the task it was written against, and running it against another one "
+        "produces a clean run that would be counted as a defended one",
+    )
     run.add_argument(
         "--config",
         default="undefended",
         choices=["undefended", "model-only", "kernel"],
         help="which arm of the experiment; M2 ships 'undefended'",
     )
-    run.add_argument("--attack", default=None, help="an attack case id, e.g. A1-seed-1")
+    run.add_argument(
+        "--attack", default=None, help="an attack case id, e.g. A1-seed-1"
+    )
     run.add_argument(
         "--seed",
         default="0",
@@ -596,6 +736,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--json", action="store_true", help="print the run record only")
     run.set_defaults(func=cmd_run)
+
+    corpus = sub.add_parser(
+        "corpus", help="count the corpus and check the manifest hash has not moved"
+    )
+    corpus_sub = corpus.add_subparsers(dest="corpus_command", required=True)
+    corpus_verify = corpus_sub.add_parser(
+        "verify", help="print the counts and the manifest hash; fail on any edit"
+    )
+    corpus_verify.add_argument(
+        "--freeze",
+        action="store_true",
+        help="rewrite the manifest from what is on disk (invalidates published numbers)",
+    )
+    corpus_verify.set_defaults(func=cmd_corpus)
+
+    oracles = sub.add_parser(
+        "oracles", help="the oracle selftest: every oracle must be shown to fire"
+    )
+    oracles_sub = oracles.add_subparsers(dest="oracles_command", required=True)
+    oracles_selftest = oracles_sub.add_parser(
+        "selftest", help="run all seven oracles against known-successful attacks"
+    )
+    oracles_selftest.add_argument("--seed", default="s02")
+    oracles_selftest.add_argument("--model", default="scripted")
+    oracles_selftest.set_defaults(func=cmd_oracles)
 
     faults = sub.add_parser(
         "faults", help="list the faults that can be armed, and how to arm them"
