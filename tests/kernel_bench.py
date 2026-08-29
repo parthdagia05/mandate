@@ -47,10 +47,10 @@ class Bench:
     tmp_path: Path
     seed: str = "bench"
     guard: Any = no_guard
-    #: The named site ``crash_after_reserve`` fires at. A callable so a test
-    #: can die exactly between the reservation and the rail, which is the one
-    #: window recovery exists for.
-    after_reserve: Any = None
+    #: ``(site, action) -> None``, raising to simulate a crash. A callable so a
+    #: test can die in a *named* window — before the rail or after it — because
+    #: those two leave opposite positions for recovery to resolve.
+    crash: Any = None
 
     world: World = field(init=False)
     service: KernelService = field(init=False)
@@ -75,7 +75,7 @@ class Bench:
             },
             client_ref="ref_bench",
             guard=self.guard,
-            after_reserve=self.after_reserve,
+            crash=self.crash,
             sidecar_path=self.tmp_path / "audit_gap.jsonl",
         )
         self._ids = IdFactory(self.world.clock, self.world.rng)
@@ -179,10 +179,36 @@ class Bench:
             self.request(ActionType.CAPTURE, cart, amount, **kw)
         )
 
+    def refund(self, cart=None, amount=None, *, payment_id=None, **kw):
+        cart = cart if cart is not None else self.agent_cart()
+        if payment_id is None:
+            payment = self.service.ledger.payment_for_cart(
+                self.intent["mandate_id"], cart["cart_hash"]
+            )
+            payment_id = payment["payment_id"] if payment else None
+        return self.service.refund(
+            self.request(
+                ActionType.REFUND, cart, amount, original_payment_id=payment_id, **kw
+            )
+        )
+
     def buy(self, cart=None, amount=None):
         """Register, authorize and capture — the whole happy path."""
         self.register()
         return self.authorize(cart, amount), self.capture(cart, amount)
+
+    def settle(self, seconds: int = 3) -> None:
+        """Advance the world's clock, one second at a time, through the barrier.
+
+        One second at a time for the same reason the harness does it: a single
+        large jump would deliver two rounds of webhooks inside one barrier and
+        hide the ordering the schedule actually produces.
+        """
+        from sim.control import ControlPlane
+
+        plane = ControlPlane(self.world)
+        for _ in range(seconds):
+            plane.clock_advance({"seconds": 1})
 
     def close(self) -> None:
         self.conn.close()

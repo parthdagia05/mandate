@@ -21,7 +21,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-__all__ = ["Fault", "FaultSite", "ArmedFault", "FaultInjector", "KernelCrashed", "PSPTimeout", "StoreUnavailableFault"]
+__all__ = [
+    "Fault",
+    "FaultSite",
+    "CrashWindow",
+    "CRASH_WINDOWS",
+    "crash_window",
+    "ArmedFault",
+    "FaultInjector",
+    "KernelCrashed",
+    "PSPTimeout",
+    "StoreUnavailableFault",
+]
 
 
 class Fault(StrEnum):
@@ -48,6 +59,48 @@ class FaultSite(StrEnum):
     STORE_READ = "kernel.store.read"
     STORE_WRITE = "kernel.store.write"
     WEBHOOK_EMIT = "sim.webhook.emit"
+
+
+class CrashWindow(StrEnum):
+    """The two gaps ``crash_after_reserve`` can open, both between the
+    idempotency reserve and its commit — which is the whole of what the fault's
+    name claims.
+
+    They are not interchangeable and the difference is the point:
+
+    ``after_reserve``
+        Before the rail is touched. The kernel dies holding a key with nothing
+        behind it. Recovery polls, finds no debit, and **releases** the key.
+        Zero debits, and the run can be retried.
+    ``after_psp_call``
+        After the rail answered and before the ledger heard about it. This is
+        SPEC.md §06's "crash mid-capture" row — ``captured`` at the PSP only,
+        key still ``in_flight`` — and recovery **commits** the debit that
+        already exists. Exactly one debit, which is the property A6 turns on.
+
+    A single fault with two windows rather than two faults, because "the kernel
+    died between reserve and commit" is one failure; where in that window it
+    landed is what the failure suite varies.
+    """
+
+    AFTER_RESERVE = "after_reserve"
+    AFTER_PSP_CALL = "after_psp_call"
+
+
+#: ``<action>.<window>`` — the ``target`` a ``crash_after_reserve`` may name.
+#: Enumerated rather than parsed so a typo is a refusal at arming time. A crash
+#: armed at a site that does not exist would never fire, and a fault that never
+#: fires produces a clean run that reads as a defended one.
+CRASH_WINDOWS: frozenset[str] = frozenset(
+    f"{action}.{window}"
+    for action in ("authorize", "capture", "refund")
+    for window in CrashWindow
+)
+
+
+def crash_window(action: str, window: CrashWindow | str) -> str:
+    """The ``target`` string naming one window of one action."""
+    return f"{action}.{window}"
 
 
 #: Which site each fault fires at. Kept as data so ``mk fault --list`` and the
@@ -96,8 +149,11 @@ class ArmedFault:
     remaining: int | None = 1
     #: ``partition`` only: how many clock-seconds responses stay dropped.
     duration_s: int = 0
-    #: ``store_unavailable`` only: which store, so one bad store does not
-    #: make every store bad and hide which one the check actually needed.
+    #: What the fault is scoped to, and it means something different per fault.
+    #: ``store_unavailable`` — which store, so one bad store does not make every
+    #: store bad and hide which one the check actually needed.
+    #: ``crash_after_reserve`` — which ``<action>.<window>`` to die in; see
+    #: :class:`CrashWindow`. ``None`` means the first site reached.
     target: str | None = None
     armed_at_s: int = 0
 
@@ -117,6 +173,17 @@ class FaultInjector:
         target: str | None = None,
         now_s: int = 0,
     ) -> ArmedFault:
+        if (
+            fault is Fault.CRASH_AFTER_RESERVE
+            and target is not None
+            and target not in CRASH_WINDOWS
+        ):
+            raise ValueError(
+                f"{target!r} is not a crash window; known: "
+                f"{sorted(CRASH_WINDOWS)}. A crash armed at a site that does "
+                "not exist never fires, and a run with no crash in it looks "
+                "exactly like a run that survived one."
+            )
         entry = ArmedFault(
             fault=fault,
             site=FAULT_SITES[fault],

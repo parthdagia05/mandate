@@ -59,6 +59,23 @@ def test_an_attack_run_opens_no_non_local_socket(no_outbound_sockets):
     assert record.attacker_win, "the run has to actually happen for this to mean anything"
 
 
+@pytest.mark.parametrize("attack_class", [f"A{n}" for n in range(1, 8)])
+def test_every_class_runs_inside_the_sandbox(no_outbound_sockets, attack_class):
+    """One reference case per class, because the classes reach different code.
+
+    A5 and A6 make extra money calls, A4 opens a standing instruction and A7
+    raises a credit. Testing containment on A1 alone would leave the paths that
+    were added last untested — which is exactly where a live call would be
+    added by accident.
+    """
+    from harness.selftest import SELFTEST_CASES
+
+    record = run_case(
+        config="undefended", attack_id=SELFTEST_CASES[attack_class], model="scripted"
+    )
+    assert record.attacker_win, "the run has to actually happen for this to mean anything"
+
+
 def test_a_benign_run_opens_no_non_local_socket(no_outbound_sockets):
     assert run_case("benign-01", config="undefended", model="scripted").task_success
 
@@ -90,3 +107,104 @@ def test_the_live_psp_adapter_is_not_reachable_from_a_simulated_run():
     ]:
         with pytest.raises(NotImplementedError, match="smoke path"):
             getattr(adapter, call)(*args)
+
+
+# ---------------------------------------------------------------------------
+# The guard the harness itself arms (issue #60)
+#
+# The tests above patch the socket layer *around* a run from outside. These
+# test the guard the runner arms on every case, which is what lets results.md
+# say "no non-local socket opened during any of the runs behind this table" and
+# point at a field rather than at a promise.
+# ---------------------------------------------------------------------------
+
+
+def test_the_runner_arms_containment_on_every_run():
+    from harness.runner import run_case
+
+    record = run_case("benign-01", config="undefended", model="scripted")
+    assert record.containment["enforced"] is True
+    assert record.containment["breaches"] == []
+    assert record.containment["non_local_blocked"] == 0
+
+
+def test_the_stand_in_needs_no_allowance_so_the_claim_is_the_strong_one():
+    """Zero non-local sockets, not "zero except one".
+
+    The allowance exists for the live-model arm and is empty everywhere else.
+    A guard that silently permitted the model endpoint in every arm would make
+    the containment claim untestable exactly where it is hardest.
+    """
+    from harness.runner import run_case
+
+    for config in ("undefended", "model-only", "agent-guard", "kernel"):
+        record = run_case(
+            config=config, attack_id="A1-seed-1", model="scripted"
+        )
+        assert record.containment["allowed_hosts"] == [], config
+        assert record.containment["model_endpoint_allowed"] is False, config
+
+
+def test_the_allowance_is_narrow_and_recorded_rather_than_quiet():
+    """It permits the named host and nothing else, and says so in the log."""
+    from harness.containment import MODEL_ENDPOINT, ContainmentBreach, contained
+
+    with contained(allow=(MODEL_ENDPOINT,)) as log:
+        with socket.socket() as probe:
+            with pytest.raises(ContainmentBreach):
+                probe.connect(("93.184.216.34", 443))
+    assert log.as_dict()["model_endpoint_allowed"] is True
+    assert log.as_dict()["non_local_blocked"] == 1
+
+
+def test_the_guard_covers_the_other_two_doors_as_well():
+    """``connect_ex`` is the same call with a different error convention, and
+    ``create_connection`` resolves a hostname *before* it connects — so
+    guarding it by name is what keeps a DNS lookup for an attacker-named host
+    from happening at all."""
+    from harness.containment import ContainmentBreach, contained
+
+    with contained():
+        with socket.socket() as probe:
+            with pytest.raises(ContainmentBreach):
+                probe.connect_ex(("93.184.216.34", 80))
+        with pytest.raises(ContainmentBreach):
+            socket.create_connection(("example.invalid", 80))
+
+
+def test_a_unix_socket_and_loopback_are_local():
+    from harness.containment import is_local
+
+    assert is_local("/tmp/some.sock")
+    assert is_local(("127.0.0.1", 8080))
+    assert is_local(("::1", 8080))
+    assert is_local(("localhost", 8080))
+    assert not is_local(("93.184.216.34", 80))
+    assert not is_local(("example.com", 443))
+
+
+def test_the_guard_is_removed_again_afterwards():
+    """A test that left the patch in place would make every later test pass for
+    the wrong reason."""
+    from harness.containment import contained
+
+    before = socket.socket.connect
+    with contained():
+        assert socket.socket.connect is not before
+    assert socket.socket.connect is before
+
+
+def test_a_whole_suite_reports_containment_on_every_line(tmp_path):
+    from harness.suite import run_suite, select
+
+    result = run_suite(
+        select("batch_a", attack_class="A1")[:3],
+        dataset="batch_a",
+        config="undefended",
+        model="scripted",
+        out=tmp_path / "suite.jsonl",
+    )
+    assert result.records
+    for record in result.records:
+        assert record.containment["enforced"] is True
+        assert record.containment["breaches"] == []

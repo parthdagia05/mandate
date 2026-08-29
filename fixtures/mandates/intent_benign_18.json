@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA00HRTQT7G4WQEMS260",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "VS0XtftycwUR9qoiTU7DdA",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:2fca2b4d5733d24398d629ddcf494165b0a817be86bdc37022f38f4670061e96",
+  "scope": {
+    "max_amount": 200000,
+    "per_txn_cap": 60000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "merchant@upi"
+      }
+    ],
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "QBssq5ShRBecWL1Wht1U714SbC_lJu758_VwijVqBemlcUojJnUfBscfheTEb7GDM6UpzcsDMZY40FOzS_E2-g"
+}

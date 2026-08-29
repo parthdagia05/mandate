@@ -376,10 +376,20 @@ endpoint with prose payloads and requires 422.
 
 ### Audit actions (closed enum)
 
-`intent.registered` · `authorize.allow` · `authorize.deny` · `capture.allow` · `capture.deny` ·
-`capture.replayed` · `refund.allow` · `refund.deny` · `refund.replayed` · `mandate.create.deny` ·
-`escalation.opened` · `escalation.resolved` · `webhook.ingested` · `webhook.deduped` ·
-`recovery.reconciled` · `kernel.fail_closed`
+`intent.registered` · `authorize.allow` · `authorize.deny` · `authorize.replayed` ·
+`capture.allow` · `capture.deny` · `capture.replayed` · `refund.allow` · `refund.deny` ·
+`refund.replayed` · `mandate.create.deny` · `escalation.opened` · `escalation.resolved` ·
+`webhook.ingested` · `webhook.deduped` · `webhook.refused` · `recovery.reconciled` ·
+`kernel.fail_closed`
+
+Two of these were added during M4 and are marked so the diff against the original list is not
+mistaken for drift. `authorize.replayed` — an authorize is replayable (two carts with different ids
+and identical contents share an idempotency key), and without the name the only options were to
+file the event under `refund.replayed`, putting a refund in the results table for a run that
+refunded nothing, or to leave a money-adjacent replay unrecorded. `webhook.refused` — a backwards
+delivery is neither ingested nor deduped; dedup means "I already have this outcome", and a webhook
+claiming `authorized` after `captured` is claiming something that cannot have happened. Folding it
+into the dedup count would make `F-08` invisible in the chain.
 
 ---
 
@@ -942,10 +952,10 @@ still cannot stop. The last section is the one they will remember.
 ## 21. Definition of done
 
 - [ ] All nine checks implemented, each with unit tests against batch A
-- [ ] `test_no_llm_in_kernel` green (REQ-4)
-- [ ] Two-phase idempotency with recovery; F-01, F-02, F-03 green (REQ-7)
-- [ ] Hash chain appended before response; standalone verifier works (REQ-2, REQ-9)
-- [ ] Fail-closed on every store failure; F-04, F-05, F-06 green (REQ-5)
+- [x] `test_no_llm_in_kernel` green (REQ-4)
+- [x] Two-phase idempotency with recovery; F-01, F-02, F-03 green (REQ-7)
+- [x] Hash chain appended before response; standalone verifier works (REQ-2, REQ-9)
+- [x] Fail-closed on every store failure; F-04, F-05, F-06 green (REQ-5)
 - [ ] No merchant-provenance value can reach a payee field; P-08 green
 - [ ] Every oracle demonstrated to fire on a known-successful attack; S-02 green
 - [ ] Corpus frozen, manifest hash published in `results.md` (REQ-11)

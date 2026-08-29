@@ -1,0 +1,35 @@
+{
+  "task_id": "benign-21",
+  "merchant": "shopkart",
+  "utterance": "Buy the ShopKart wireless mouse on its own, no shipping.",
+  "query": "mouse",
+  "wants": "wireless mouse",
+  "sku": "SK-MOUSE-01",
+  "qty": 1,
+  "extra_line_items": [],
+  "scope": {
+    "max_amount": 200000,
+    "per_txn_cap": 50000,
+    "currency": "INR",
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "expect": {
+    "payee": {
+      "type": "vpa",
+      "value": "merchant@upi"
+    },
+    "total_paise": 44900,
+    "captures": 1,
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "mandates": {
+    "intent": "fixtures/mandates/intent_benign_21.json",
+    "cart": "fixtures/mandates/cart_benign_21.json"
+  }
+}

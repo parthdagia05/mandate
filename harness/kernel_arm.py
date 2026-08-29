@@ -7,7 +7,7 @@ the same planner taking the same five steps. What this module adds is a
 rail, and nothing else. If it added anything else the difference between the two
 arms would stop being attributable to the kernel.
 
-Three wirings here are load-bearing:
+Five wirings here are load-bearing:
 
 **The store guard.** ``kernel/`` knows nothing about the simulator, so the
 fault injector reaches it as a callable that raises. That keeps REQ-5 testable —
@@ -22,6 +22,19 @@ be two authorities on whether a mandate has expired.
 is the whole of check 9's "appended and fsynced before the response returns",
 and an in-memory database would let that claim pass a test it cannot pass on
 disk.
+
+**The webhook subscription.** The kernel hears the same PSP callbacks the
+simulator's own state machine hears, one subscriber later, so it always sees a
+payment the rail has already moved. This is what makes ``duplicate_webhook``
+and ``reorder_webhook`` reach the kernel at all — without it the kernel would
+never see a webhook, and "the chain shows ``webhook.deduped``" would be a claim
+about code nothing runs.
+
+**The recovery scan at the barrier.** Registered on the world rather than on a
+timer, so a recovery happens at a clock-second the seed and the schedule fix.
+The settle probe beside it is what keeps a run from being reported while a
+reservation is still open: a world with no webhooks left is not a finished run
+if the kernel is still holding a key.
 
 A run that ends with a chain that does not verify is **discarded, not
 reported**. :meth:`KernelArm.verify` is what decides that, and the run record
@@ -43,7 +56,7 @@ from kernel.audit.chain import ChainBroken
 from kernel.audit.verify import verify_entries
 from kernel.service import KernelService
 from kernel.stores.db import StoreUnavailable, connect
-from sim.faults import Fault, KernelCrashed
+from sim.faults import Fault, KernelCrashed, crash_window
 from sim.world import World
 
 __all__ = ["REPO_ROOT", "DEFAULT_CHAIN_PATH", "TaskHasNoMandates", "KernelArm"]
@@ -73,11 +86,23 @@ class KernelArm:
     task: Task
     world: World
     client_ref: str
+    #: Checks the ablation has switched off, by number. Empty in every
+    #: published configuration; ``mk ablate`` is the only caller that sets it.
+    disabled_checks: tuple[int, ...] = ()
 
     service: KernelService = field(init=False)
     credentials: AgentCredentials = field(init=False)
     intent: dict[str, Any] = field(init=False)
     confirmed_cart: dict[str, Any] = field(init=False)
+
+    #: Every reservation the barrier's recovery scan resolved, in order. The
+    #: run record carries these so "the crash was repaired" is visible as an
+    #: event rather than inferred from a ledger that happens to look right.
+    recoveries: list[dict[str, Any]] = field(default_factory=list)
+    #: Webhooks the kernel could not ingest. Empty in every passing run; named
+    #: rather than swallowed, because a webhook that vanished is how a ledger
+    #: quietly stops matching the rail.
+    webhook_errors: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         mandates = self.task.raw.get("mandates")
@@ -104,9 +129,15 @@ class KernelArm:
             client_ref=self.client_ref,
             instrument_token=self.confirmed_cart["instrument"]["token"],
             guard=self._store_guard,
-            after_reserve=self._after_reserve,
+            crash=self._crash,
             sidecar_path=self._tmp / "audit_gap.jsonl",
+            disabled_checks=self.disabled_checks,
         )
+
+        for kind in ("payment.authorized", "payment.captured"):
+            self.world.scheduler.on(kind, self._ingest_webhook)
+        self.world.after_advance(self.recovery_scan)
+        self.world.settle_probe(self._has_open_reservations)
 
     # -- trust ------------------------------------------------------------
 
@@ -138,15 +169,77 @@ class KernelArm:
 
         ControlPlane(self.world).fault(spec)
 
-    def _after_reserve(self) -> None:
-        """``crash_after_reserve``: die between the reserve and the PSP call.
+    def _crash(self, site: str, action: str) -> None:
+        """``crash_after_reserve``: die in one of the two named windows.
+
+        The armed fault's ``target`` names ``<action>.<window>``; with no target
+        it fires at the first window reached. Which window matters — see
+        :class:`~sim.faults.CrashWindow` — because one leaves a reservation with
+        no debit and the other leaves a debit with no ledger entry, and recovery
+        resolves them in opposite directions.
 
         Raises :class:`~sim.faults.KernelCrashed`, which derives from
         ``BaseException`` so no stray ``except Exception`` can turn a simulated
         crash into something the system under test gets to clean up after.
         """
-        if self.world.faults.fires(Fault.CRASH_AFTER_RESERVE):
-            raise KernelCrashed(Fault.CRASH_AFTER_RESERVE.value)  # type: ignore[arg-type]
+        if self.world.faults.fires(
+            Fault.CRASH_AFTER_RESERVE, target=crash_window(action, site)
+        ):
+            raise KernelCrashed(f"{Fault.CRASH_AFTER_RESERVE}:{action}.{site}")  # type: ignore[arg-type]
+
+    # -- the PSP's callbacks, and the scan that cleans up after a crash ----
+
+    def _ingest_webhook(self, event) -> None:
+        """Hand one delivered callback to the kernel, as the API would.
+
+        Routed through :class:`~kernel.decision.WebhookIngest` rather than
+        called with loose arguments, so the in-process path cannot accept a
+        body the socket would reject with 422.
+
+        A failure here is swallowed on purpose and only here: a webhook the
+        kernel could not ingest must not take down the simulator's barrier, and
+        the kernel has already recorded its own 503. The ledger is reconciled
+        by the *next* delivery or by the recovery scan, both of which read state
+        rather than events.
+        """
+        from kernel.decision import WebhookIngest
+
+        try:
+            self.service.ingest_webhook(
+                WebhookIngest.model_validate(
+                    {
+                        "event_id": event.event_id,
+                        "event": event.kind,
+                        "payment_id": event.payload["payment_id"],
+                        "state": event.payload["state"],
+                        "amount_paise": event.payload.get("amount_paise", 0),
+                    }
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.webhook_errors.append(f"{type(exc).__name__}: {exc}")
+
+    def recovery_scan(self) -> dict[str, Any]:
+        """The scan, at the barrier. See :meth:`KernelService.recovery_scan`."""
+        result = self.service.recovery_scan()
+        if result.get("resolved"):
+            self.recoveries.extend(result["resolved"])
+        return result
+
+    def _has_open_reservations(self) -> bool:
+        """True while a reservation has not reached a terminal state.
+
+        Only ``in_flight`` rows count. A row the scan has moved to
+        ``recovering`` and could not resolve would otherwise hold the settle
+        loop open forever, and a loop that cannot terminate is a worse way to
+        report an unresolved refund than a run record that names it.
+        """
+        try:
+            return self.service.idempotency.unsettled() > 0
+        except StoreUnavailable:
+            # An unreadable store is not an empty one, but it is also not a
+            # reason to spin: the run's own fail-closed path has already said so.
+            return False
 
     # -- the chain --------------------------------------------------------
 

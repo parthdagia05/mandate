@@ -62,14 +62,33 @@ CREATE TABLE IF NOT EXISTS nonce_seen (
     seen_at    TEXT NOT NULL
 ) STRICT;
 
+-- Three states, because "reserved but outcome unknown" is a real position.
+--
+-- The five columns after `state` are the reservation's *recovery context*, and
+-- they are here because the key is a hash and a hash cannot be un-hashed. A
+-- recovery scan runs with no request in hand — that is the whole point of it,
+-- the request's process died — so everything it needs to settle the true
+-- outcome has to have been written down at reserve time: which mandate and
+-- cart the action was for, how much it moved, the `client_ref` to poll the PSP
+-- by, and (refunds only) the payment being reversed.
 CREATE TABLE IF NOT EXISTS idempotency_record (
-    key          TEXT PRIMARY KEY,
-    action       TEXT NOT NULL,
-    state        TEXT NOT NULL,
-    result_json  TEXT,
-    reserved_at  TEXT NOT NULL,
-    committed_at TEXT
+    key           TEXT PRIMARY KEY,
+    action        TEXT NOT NULL,
+    state         TEXT NOT NULL,
+    result_json   TEXT,
+    reserved_at   TEXT NOT NULL,
+    committed_at  TEXT,
+    mandate_id    TEXT NOT NULL,
+    cart_hash     TEXT NOT NULL,
+    amount_paise  INTEGER NOT NULL,
+    client_ref    TEXT NOT NULL,
+    payment_id    TEXT,
+    CHECK (amount_paise >= 0)
 ) STRICT;
+
+-- The recovery scan's only query: rows that are not terminal, oldest first.
+CREATE INDEX IF NOT EXISTS idempotency_open
+    ON idempotency_record(state, reserved_at);
 
 CREATE TABLE IF NOT EXISTS payment (
     payment_id   TEXT PRIMARY KEY,

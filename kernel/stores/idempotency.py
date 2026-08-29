@@ -36,7 +36,13 @@ from kernel.enums import ActionType, IdempotencyState
 from kernel.models import IdempotencyRecord
 from kernel.stores.base import Store, StoreGuard, no_guard
 
-__all__ = ["RECOVERY_TTL_S", "KEY_SEPARATOR", "idempotency_key", "Reservation", "IdempotencyStore"]
+__all__ = [
+    "RECOVERY_TTL_S",
+    "KEY_SEPARATOR",
+    "idempotency_key",
+    "Reservation",
+    "IdempotencyStore",
+]
 
 #: How long an ``in_flight`` row is respected before the recovery scan claims
 #: it. Thirty seconds of *injected* clock, so the failure suite reaches it by
@@ -82,35 +88,72 @@ class IdempotencyStore(Store):
         super().__init__(conn, guard)
         self._clock = clock
 
+    @staticmethod
+    def _record(row) -> IdempotencyRecord:
+        return IdempotencyRecord(
+            key=row["key"],
+            action=ActionType(row["action"]),
+            state=IdempotencyState(row["state"]),
+            result_json=row["result_json"],
+            reserved_at=row["reserved_at"],
+            committed_at=row["committed_at"],
+            mandate_id=row["mandate_id"],
+            cart_hash=row["cart_hash"],
+            amount_paise=row["amount_paise"],
+            client_ref=row["client_ref"],
+            payment_id=row["payment_id"],
+        )
+
     def get(self, key: str) -> IdempotencyRecord | None:
         def read() -> IdempotencyRecord | None:
             row = self._conn.execute(
                 "SELECT * FROM idempotency_record WHERE key = ?", (key,)
             ).fetchone()
-            if row is None:
-                return None
-            return IdempotencyRecord(
-                key=row["key"],
-                action=ActionType(row["action"]),
-                state=IdempotencyState(row["state"]),
-                result_json=row["result_json"],
-                reserved_at=row["reserved_at"],
-                committed_at=row["committed_at"],
-            )
+            return None if row is None else self._record(row)
 
         return self._guarded("read", read)
 
-    def reserve(self, key: str, action: ActionType) -> Reservation:
-        """Claim ``key``, or report who holds it and in what state."""
+    def reserve(
+        self,
+        key: str,
+        action: ActionType,
+        *,
+        mandate_id: str,
+        cart_hash: str,
+        amount_paise: int,
+        client_ref: str,
+        payment_id: str | None = None,
+    ) -> Reservation:
+        """Claim ``key``, or report who holds it and in what state.
+
+        The keyword arguments are the reservation's **recovery context**, and
+        they are required rather than optional because a row without them is a
+        row the recovery scan cannot resolve. A scan runs with no request in
+        hand; the key is a hash; so anything not written here is gone. Making
+        them optional would let one caller quietly create reservations that
+        only a live request can ever settle — which is exactly the row that
+        would still read ``in_flight`` after the crash test.
+        """
         now = self._clock.now_rfc3339()
 
         def write() -> Reservation | None:
             try:
                 self._conn.execute(
                     "INSERT INTO idempotency_record"
-                    " (key, action, state, result_json, reserved_at, committed_at)"
-                    " VALUES (?, ?, ?, NULL, ?, NULL)",
-                    (key, str(action), str(IdempotencyState.IN_FLIGHT), now),
+                    " (key, action, state, result_json, reserved_at, committed_at,"
+                    "  mandate_id, cart_hash, amount_paise, client_ref, payment_id)"
+                    " VALUES (?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?)",
+                    (
+                        key,
+                        str(action),
+                        str(IdempotencyState.IN_FLIGHT),
+                        now,
+                        mandate_id,
+                        cart_hash,
+                        amount_paise,
+                        client_ref,
+                        payment_id,
+                    ),
                 )
                 return Reservation(outcome="fresh", key=key)
             except sqlite3.IntegrityError:
@@ -142,6 +185,61 @@ class IdempotencyStore(Store):
             "UPDATE idempotency_record SET state = ? WHERE key = ?",
             (str(IdempotencyState.RECOVERING), key),
         )
+
+    # -- what the recovery scan reads -------------------------------------
+
+    def open_reservations(self, ttl_s: int = RECOVERY_TTL_S) -> list[IdempotencyRecord]:
+        """Every row the recovery scan is entitled to act on, oldest first.
+
+        Two states qualify and for different reasons. An ``in_flight`` row past
+        the TTL is one whose owner has had long enough and has not come back.
+        A ``recovering`` row is one a previous scan claimed and could not
+        resolve — the PSP was unreachable, a store was down — and it is
+        included at every scan because **skipping is never a transition**: a row
+        that dropped out of the scan on its first failure would be a debit
+        nothing was still trying to account for.
+
+        ``in_flight`` rows *inside* the TTL are deliberately absent. Their owner
+        may still be mid-call, and polling underneath a live request is how a
+        scan and a request race to settle the same key.
+        """
+        now = from_rfc3339(self._clock.now_rfc3339())
+
+        def read() -> list[IdempotencyRecord]:
+            rows = self._conn.execute(
+                "SELECT * FROM idempotency_record WHERE state IN (?, ?)"
+                " ORDER BY reserved_at, key",
+                (str(IdempotencyState.IN_FLIGHT), str(IdempotencyState.RECOVERING)),
+            ).fetchall()
+            open_rows = []
+            for row in rows:
+                record = self._record(row)
+                if record.state == IdempotencyState.RECOVERING:
+                    open_rows.append(record)
+                    continue
+                age = (now - from_rfc3339(record.reserved_at)).total_seconds()
+                if age >= ttl_s:
+                    open_rows.append(record)
+            return open_rows
+
+        return self._guarded("read", read)
+
+    def unsettled(self) -> int:
+        """How many reservations have not reached ``terminal``.
+
+        The harness's settle loop reads this: a run whose world has gone quiet
+        but whose kernel still holds an ``in_flight`` key has not finished, and
+        stopping there would report a ledger mid-recovery.
+        """
+
+        def read() -> int:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM idempotency_record WHERE state = ?",
+                (str(IdempotencyState.IN_FLIGHT),),
+            ).fetchone()
+            return int(row["n"])
+
+        return self._guarded("read", read)
 
     def commit(self, key: str, result_json: str) -> None:
         """Move to ``terminal``. Runs inside the caller's transaction.

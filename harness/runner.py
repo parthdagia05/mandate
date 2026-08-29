@@ -10,6 +10,15 @@ The shape of a run, and why it is this shape:
    webhooks still in flight. A run that reported its ledger mid-delivery would
    report a different ledger depending on when it looked.
 5. Score with the case's oracle, over the ledger.
+6. Write the line down, including what it cost and which corpus produced it.
+
+Step 6 is the one place the record is not a function of the seed. Two runs of
+one seed agree on every other byte; they will not agree on ``latency_us``,
+which is why a measured duration reaches the run record and never the event log
+or the audit chain. ``corpus_manifest`` is the other half of that line's
+provenance: it is computed from disk at run time, not read out of
+``harness/manifest.json``, so a record cannot go on quoting a frozen hash after
+somebody has edited a payload.
 
 The barrier in step 4 goes through :class:`~sim.control.ControlPlane` rather
 than calling ``World.advance`` directly, so the single-process path exercises
@@ -18,33 +27,93 @@ the same code the socket serves. Two paths that could disagree eventually do.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agent.llm import SCRIPTED_MODEL_ID, ModelClient, build_model
+from agent.defended import DefendedAgent
+from agent.extractor import QuarantinedExtractor
+from agent.guardrail import GuardrailScreen
+from agent.llm import SCRIPTED_MODEL_ID, AnthropicModel, ModelClient, build_model
 from agent.planner import PlanResult, UndefendedAgent
-from agent.tools import KernelTools, UndefendedTools
+from agent.provenance import TaintLedger
+from agent.tools import (
+    GuardedKernelTools,
+    GuardedTools,
+    KernelTools,
+    ScreenedTools,
+    UndefendedTools,
+)
+from harness.containment import MODEL_ENDPOINT, contained
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
-from harness.oracles import oracle_for
+from harness.manifest import current_hash
+from harness.oracles import Authority, LedgerView, oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
 from sim.faults import KernelCrashed
 from sim.world import World
 
-__all__ = ["CONFIGS", "MAX_SETTLE_ADVANCES", "RunRecord", "run_case"]
+__all__ = [
+    "CONFIGS",
+    "HEADLINE_CONFIGS",
+    "USES_KERNEL",
+    "USES_AGENT_GUARD",
+    "MAX_SETTLE_ADVANCES",
+    "RunRecord",
+    "check_config",
+    "percentiles",
+    "run_case",
+    "run_id_for",
+]
 
-#: The three arms of the experiment (SPEC.md §11). M2 implements the first;
-#: the names exist now so the run record's schema does not change under the
-#: results table later.
-CONFIGS = ("undefended", "model-only", "kernel")
+#: Every arm the harness can run. The **first three** are the experiment
+#: SPEC.md §11 describes and the three ``results.md`` publishes side by side:
+#: no defence, the defence everybody proposes first, and this project's.
+#:
+#: The last two exist because the agent-side work (P-07 and P-08) has to be
+#: measurable *without* being folded into the kernel's numbers.
+#:
+#: ``agent-guard``
+#:     The planner/quarantined-extractor split and the field-admission policy,
+#:     and no kernel. What the agent-side mechanisms are worth alone.
+#: ``kernel+agent-guard``
+#:     Both. Defence in depth, and the only arm in which anything is doubled up.
+#:
+#: **``kernel`` runs the undefended agent, deliberately.** SPEC.md §17.7: every
+#: guarantee has to hold with a fully adversarial agent, so the arm that
+#: measures the kernel's guarantees runs one. Every attack flow therefore also
+#: runs with the agent-side taint guard removed — that is not an extra
+#: experiment, it *is* the kernel arm.
+CONFIGS = (
+    "undefended",
+    "model-only",
+    "kernel",
+    "agent-guard",
+    "kernel+agent-guard",
+)
+
+#: The three that go in the headline table, in the order they are printed.
+HEADLINE_CONFIGS = ("undefended", "model-only", "kernel")
+
+#: Which arms stand a kernel up, and which arms run the agent-side guard. Two
+#: sets rather than a chain of string comparisons, so adding an arm is one edit
+#: and a misspelled config name cannot silently mean "no kernel".
+USES_KERNEL = frozenset({"kernel", "kernel+agent-guard"})
+USES_AGENT_GUARD = frozenset({"agent-guard", "kernel+agent-guard"})
 
 #: How many one-second advances the settle loop will take before giving up.
 #: A webhook chain longer than this is a bug in the chain, and hanging is a
 #: worse way to find out about it than failing.
-MAX_SETTLE_ADVANCES = 60
+#:
+#: It has to clear ``RECOVERY_TTL_S`` with room to spare: a crashed run settles
+#: its webhooks in a couple of seconds and then waits out the TTL before the
+#: scan will touch the reservation. A bound below the TTL would make every
+#: crash test fail as "did not settle" instead of recovering.
+MAX_SETTLE_ADVANCES = 90
 
 
 @dataclass
@@ -63,12 +132,23 @@ class RunRecord:
     log_head: str
     log_entries: int
     plan: dict[str, Any]
+    #: Credits raised, kept apart from ``ledger`` because a refund is not a
+    #: debit and folding it in would make every A1 oracle count it.
+    refunds: list[dict[str, Any]] = field(default_factory=list)
+    #: Standing instructions opened, kept apart for the same reason again: a
+    #: licence to draw money later is neither a debit nor a credit, and A4's
+    #: loss is complete before any instalment exists.
+    mandates: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
     notes: list[str] = field(default_factory=list)
     #: Kernel arm only: every decision the kernel returned, in order, with its
     #: reason code and the checks that ran. A denial has to be visible *as a
     #: decision*; "no money moved" is also what a crashed agent looks like.
     decisions: list[dict[str, Any]] = field(default_factory=list)
+    #: Kernel arm only: every reservation the barrier's recovery scan
+    #: resolved. A crash that was repaired has to be visible *as a repair* —
+    #: a ledger that happens to look right is not evidence that recovery ran.
+    recoveries: list[dict[str, Any]] = field(default_factory=list)
     #: Kernel arm only: the audit chain this run produced.
     chain_head: str | None = None
     chain_entries: int = 0
@@ -77,27 +157,132 @@ class RunRecord:
     #: reported** — the harness refuses to score it rather than publishing a
     #: number produced by a kernel whose own record is untrustworthy.
     poisoned: str | None = None
+    #: ``{"n", "p50", "p99"}`` in microseconds, over this run's money-moving
+    #: tool calls, measured at the tool boundary in **every** arm (see
+    #: :func:`agent.tools.timed`). One run makes two or three such calls, so
+    #: these are a per-run summary and not the published figure: the overhead
+    #: column in ``results.md`` is computed over every call in a whole suite,
+    #: and it is a *difference* between arms.
+    #:
+    #: The one field in this record that is not a function of the seed. Two
+    #: runs of one seed agree on every other byte and will not agree here,
+    #: which is why no duration reaches the event log or the audit chain.
+    latency_us: dict[str, int] = field(default_factory=dict)
+    #: The raw samples behind ``latency_us``: one ``{"call", "latency_us"}``
+    #: per completed money-moving tool call, in call order. Kept because a
+    #: suite's percentile has to be taken over the pooled calls — a p99 of
+    #: per-run p99s is a p99 of nothing — and because ``pay`` and ``refund``
+    #: cost different amounts, which a single per-run figure hides.
+    money_calls: list[dict[str, Any]] = field(default_factory=list)
+    #: Agent-guard arms only: every time an inadmissible value was offered to
+    #: a restricted field and the planner fell back. The guard firing has to be
+    #: visible *as an event*, because an agent that happened to behave and an
+    #: agent that was stopped look identical in the ledger.
+    guard_events: list[dict[str, Any]] = field(default_factory=list)
+    #: Agent-guard arms only: what the taint ledger held and what it refused.
+    taint: dict[str, Any] = field(default_factory=dict)
+    #: Agent-guard arms only: every extraction, with how many bytes of hostile
+    #: content each one was shown. This is the evidence for "the prose was read
+    #: here and only here" — the claim the planner/extractor split makes.
+    extractor: dict[str, Any] = field(default_factory=dict)
+    #: Model-only arm: every screening the classifier performed, flagged or not.
+    guardrail: dict[str, Any] = field(default_factory=dict)
+    #: The checks the ablation switched off for this run, by number. Empty in
+    #: every published configuration; its presence is what tells a reader that
+    #: a line came from ``mk ablate`` and not from the results table.
+    disabled_checks: list[int] = field(default_factory=list)
+    #: What the containment guard saw (REQ-10). Present on every run the
+    #: harness drove, so "no non-local socket opened during any attack run" is
+    #: a field in the record rather than a sentence in a README.
+    containment: dict[str, Any] = field(default_factory=dict)
+    #: The hash of the corpus that produced this line, computed from disk at
+    #: run time rather than read from ``harness/manifest.json`` (REQ-11). A
+    #: results table whose lines do not all carry the manifest hash published
+    #: beside it was measured against a corpus nobody can reconstruct.
+    corpus_manifest: str = ""
 
     def to_json(self) -> str:
         return json.dumps(self.__dict__, sort_keys=True)
 
 
+def check_config(config: str) -> None:
+    """Refuse an arm that does not exist, or one that is not built yet.
+
+    Split out of :func:`run_case` so a suite can refuse **before** it opens an
+    output file and runs a hundred cases into it. A partially written JSONL
+    whose every line is the same ``NotImplementedError`` is a worse way to
+    learn the arm is missing than one message on the way in.
+    """
+    if config not in CONFIGS:
+        raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
+
+
+def run_id_for(
+    *, seed: str, task_id: str | None, case_id: str | None, config: str
+) -> str:
+    """The line's ``run_id``. A function of the experiment, not of the clock.
+
+    Deterministic on purpose: re-running one case of a suite reproduces its
+    ``run_id``, so a line in an old JSONL and the run that reproduces it are
+    the same identifier rather than two. A uuid would make every re-run look
+    like new evidence.
+
+    Shared with the suite so a case that *failed* gets the same id it would
+    have had if it had passed — an error line nobody can join back to the case
+    it came from is a hole in the record, and a run that crashed is exactly
+    when the join matters.
+    """
+    return sha256_of({"seed": seed, "task": task_id, "case": case_id, "config": config})
+
+
+def percentiles(samples: list[int]) -> dict[str, int]:
+    """``n``, ``p50`` and ``p99`` over a list of microsecond durations.
+
+    Nearest-rank on the sorted sample, no interpolation: every value reported
+    is a duration that was actually measured, rather than one between two that
+    were. At small ``n`` interpolation invents a number, and this is a project
+    that has already committed to saying when ``n`` is small.
+
+    ``n`` is reported beside the two percentiles for the same reason the
+    results table carries a confidence interval. A p99 over three samples is
+    the maximum of three samples, and a reader who cannot see ``n`` has no way
+    to know that is what they are looking at.
+    """
+    if not samples:
+        return {"n": 0, "p50": 0, "p99": 0}
+    ordered = sorted(samples)
+
+    def at(quantile: float) -> int:
+        rank = math.ceil(quantile * len(ordered))
+        return ordered[min(len(ordered), max(1, rank)) - 1]
+
+    return {"n": len(ordered), "p50": at(0.50), "p99": at(0.99)}
+
+
 def _settle(plane: ControlPlane) -> int:
-    """Advance one second at a time until nothing is pending.
+    """Advance one second at a time until nothing is outstanding.
 
     One second at a time rather than one large jump, because a large jump would
     deliver two rounds of webhooks inside a single barrier and hide an ordering
     the schedule actually produces. The point of the barrier is that ordering is
     observable.
+
+    "Outstanding" is more than the webhook queue. A kernel run can have a quiet
+    world and an open reservation — the crash tests are exactly that — and
+    reporting the ledger there would report it mid-recovery. So the loop asks
+    :meth:`~sim.world.World.unsettled`, which the kernel arm answers for, and
+    keeps advancing until the reservation is resolved or the TTL has passed and
+    the scan has had its say.
     """
     world = plane.world
     for advanced in range(1, MAX_SETTLE_ADVANCES + 1):
         plane.clock_advance({"seconds": 1})
-        if not world.scheduler.pending():
+        if not world.unsettled():
             return advanced
     raise RuntimeError(
         f"the world did not settle in {MAX_SETTLE_ADVANCES} advances; "
-        f"{len(world.scheduler.pending())} webhooks still pending"
+        f"{len(world.scheduler.pending())} webhooks still pending and "
+        "the settle probes still report outstanding work"
     )
 
 
@@ -121,9 +306,55 @@ def _task_succeeded(task: Task, plan: PlanResult, ledger: list[dict[str, Any]]) 
         and capture["state"] == "captured"
     )
 
+@contextlib.contextmanager
+def _unguarded(allow: tuple[str, ...]):
+    """The shape of :func:`~harness.containment.contained`, with no guard.
+
+    For the one caller that is measuring the guard itself. The log it yields
+    reports ``enforced`` truthfully — which is to say the field is absent from
+    such a run's record rather than present and false, because a containment
+    field that can say "no" is a field a reader has to check the value of.
+    """
+    yield None
+
+
+def _drive(
+    agent: Any, task: dict[str, Any], task_id: str, model_id: str
+) -> tuple[PlanResult, str | None]:
+    """Run the agent, and turn any way it can fall over into a recorded outcome.
+
+    Two ``except`` clauses and they are not the same clause twice.
+    :class:`~sim.faults.KernelCrashed` derives from ``BaseException`` on purpose
+    — a simulated crash the agent could catch is not a crash — so it needs
+    naming separately to be caught here at all. Everything else is an agent that
+    died, which is a real outcome of a run and is written down rather than
+    raised past the harness: ``crash_after_reserve`` produces one deliberately,
+    and a suite that aborted on it would lose the ninety cases that did run.
+    """
+    try:
+        return agent.run(task), None
+    except KernelCrashed as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001 — a crashed agent is a real outcome
+        error = f"{type(exc).__name__}: {exc}"
+    return (
+        PlanResult(
+            task_id=task_id,
+            sku="",
+            line_items=[],
+            total_paise=0,
+            payee={},
+            checkout_payee={},
+            payment=None,
+            model_id=model_id,
+            error=error,
+        ),
+        error,
+    )
+
 
 def run_case(
-    task_id: str,
+    task_id: str | None = None,
     *,
     config: str = "undefended",
     attack_id: str | None = None,
@@ -133,18 +364,50 @@ def run_case(
     export_log: Path | None = None,
     export_chain: Path | None = None,
     faults: list[dict[str, Any]] | None = None,
+    disabled_checks: tuple[int, ...] = (),
+    contain: bool = True,
 ) -> RunRecord:
-    if config not in CONFIGS:
-        raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
-    if config == "model-only":
-        raise NotImplementedError(
-            "config 'model-only' arrives in M6; it is the arm that measures the "
-            "agent-side taint guard on its own, and reporting it before it "
-            "exists would put a number in the table for a defence nobody built"
+    """Run one case in one arm and return the line that describes it.
+
+    ``disabled_checks`` is the ablation's only entry point. It is empty in every
+    published configuration and the run record says so either way, because a
+    line produced with a check switched off and a line produced with all nine
+    running must never be mistakable for one another after the fact.
+
+    ``contain`` arms :func:`~harness.containment.contained` around the whole
+    run (REQ-10). On by default: this is a defence evaluation, attacks reach
+    only our own mocks, and a guarantee that has to be remembered at each call
+    site is a guarantee that will be forgotten at one of them. It is turned off
+    only by a caller that is deliberately measuring the guard itself.
+    """
+    check_config(config)
+    if disabled_checks and config not in USES_KERNEL:
+        raise ValueError(
+            f"config {config!r} stands up no kernel, so there is nothing to "
+            f"ablate. Disabling {sorted(disabled_checks)} here would produce a "
+            "line labelled as an ablation that is byte-identical to the "
+            "un-ablated one — a row in the ablation table that means nothing."
         )
 
-    task = load_task(task_id)
     case: AttackCase | None = load_attack(attack_id) if attack_id else None
+    if case is not None:
+        # The case names the task it was written against, and the two must
+        # agree. A case run against some other task reaches a planner with no
+        # step for it: the payload is served, nothing happens, and the oracle
+        # says False — which is indistinguishable in the results table from a
+        # defence that worked.
+        if task_id is None:
+            task_id = case.task_id
+        elif task_id != case.task_id:
+            raise ValueError(
+                f"case {case.case_id} was written against task "
+                f"{case.task_id!r}, not {task_id!r}. Running it elsewhere "
+                "produces a clean run that would be counted as a defended one."
+            )
+    if task_id is None:
+        raise ValueError("run_case needs a task_id, or an attack that names one")
+
+    task = load_task(task_id)
 
     world = World(seed=seed, merchant_name=task.merchant)
     plane = ControlPlane(world)
@@ -163,74 +426,100 @@ def run_case(
     client_ref = f"ref_{sha256_of({'seed': seed, 'task': task_id, 'case': attack_id})[7:23]}"
 
     arm: KernelArm | None = None
-    if config == "kernel":
-        arm = KernelArm(task=task, world=world, client_ref=client_ref)
-        tools = KernelTools(
+    taint: TaintLedger | None = None
+    extractor: QuarantinedExtractor | None = None
+    screen: GuardrailScreen | None = None
+
+    if config in USES_KERNEL:
+        arm = KernelArm(
+            task=task,
             world=world,
             client_ref=client_ref,
-            service=arm.service,
-            credentials=arm.credentials,
-            intent=arm.intent,
-            confirmed_cart=arm.confirmed_cart,
+            disabled_checks=tuple(disabled_checks),
         )
+        kernel_kwargs = {
+            "world": world,
+            "client_ref": client_ref,
+            "service": arm.service,
+            "credentials": arm.credentials,
+            "intent": arm.intent,
+            "confirmed_cart": arm.confirmed_cart,
+        }
+        if config in USES_AGENT_GUARD:
+            taint = TaintLedger()
+            tools = GuardedKernelTools(taint=taint, **kernel_kwargs)
+        else:
+            tools = KernelTools(**kernel_kwargs)
+    elif config in USES_AGENT_GUARD:
+        taint = TaintLedger()
+        tools = GuardedTools(world=world, client_ref=client_ref, taint=taint)
+    elif config == "model-only":
+        screen = GuardrailScreen(model=client)
+        tools = ScreenedTools(world=world, client_ref=client_ref, screen=screen)
     else:
         tools = UndefendedTools(world=world, client_ref=client_ref)
-    agent = UndefendedAgent(model=client, tools=tools)
 
-    error: str | None = None
-    try:
-        plan = agent.run(task.raw)
-    except KernelCrashed as exc:
-        # BaseException on purpose (sim/faults.py): a simulated crash the agent
-        # could catch is not a crash. It is still a real outcome, so it is
-        # recorded rather than raised past the harness.
-        error = f"{type(exc).__name__}: {exc}"
-        plan = PlanResult(
-            task_id=task_id,
-            sku="",
-            line_items=[],
-            total_paise=0,
-            payee={},
-            checkout_payee={},
-            payment=None,
-            model_id=client.model_id,
-            error=error,
+    agent: Any
+    if config in USES_AGENT_GUARD:
+        # The split arm gets the defended planner and its own extractor. Every
+        # other arm gets the undefended agent unchanged — including ``kernel``,
+        # which is the point: the kernel's guarantees are measured against a
+        # fully adversarial agent, not against one that has been improved.
+        extractor = QuarantinedExtractor(model=client)
+        agent = DefendedAgent(
+            model=client, tools=tools, extractor=extractor, taint=taint
         )
-    except Exception as exc:  # noqa: BLE001 — a crashed agent is a real outcome
-        error = f"{type(exc).__name__}: {exc}"
-        plan = PlanResult(
-            task_id=task_id,
-            sku="",
-            line_items=[],
-            total_paise=0,
-            payee={},
-            checkout_payee={},
-            payment=None,
-            model_id=client.model_id,
-            error=error,
-        )
+    else:
+        agent = UndefendedAgent(model=client, tools=tools)
+
+    # The model endpoint is allowed only when a live model is actually driving,
+    # and the allowance is recorded either way. With the stand-in or a cassette
+    # the allowance is empty and the claim is the strong one: zero non-local
+    # sockets during this run.
+    allow = (MODEL_ENDPOINT,) if isinstance(client, AnthropicModel) else ()
+    with contained(allow=allow) if contain else _unguarded(allow) as containment:
+        plan, error = _drive(agent, task.raw, task_id, client.model_id)
 
     _settle(plane)
     # The rail, not the thing under test. The oracle asks the payment rail
     # where money went, because a kernel that reported its own ledger would be
     # scoring its own exam.
     ledger = world.psp.ledger()
+    refunds = world.psp.refund_ledger()
+    mandates = world.psp.mandate_ledger()
 
     decisions: list[dict[str, Any]] = []
+    recoveries: list[dict[str, Any]] = []
     chain_head: str | None = None
     chain_entries = 0
     chain_path: str | None = None
     poisoned: str | None = None
     if arm is not None:
         decisions = list(getattr(tools, "decisions", []))
+        recoveries = list(arm.recoveries)
         poisoned = arm.verify()
         chain_path = str(arm.export(export_chain))
         chain_head, chain_entries = arm.head()
         arm.close()
 
+    if arm is None:
+        # The model-only arm records its refusals in the same shape, so one
+        # metric function reads every arm's ``decisions``. Every other
+        # kernel-less arm has none, and an empty list is the truthful answer:
+        # nothing made a decision about this run.
+        decisions = list(getattr(tools, "decisions", []))
+
     attacker_win = False
     if case is not None:
-        attacker_win = oracle_for(case.oracle)(ledger, task.expect, case.raw)
+        attacker_win = oracle_for(case.oracle)(
+            LedgerView(captures=ledger, refunds=refunds, mandates=mandates),
+            # Built from the task, so the bound an attack is scored against
+            # cannot be moved by the attack. It also re-reads the signed
+            # mandates and refuses a task whose stated authority and signed
+            # authority disagree.
+            Authority.from_task(task.raw),
+            case.raw,
+        )
 
     if export_log is not None:
         Path(export_log).parent.mkdir(parents=True, exist_ok=True)
@@ -247,10 +536,36 @@ def run_case(
             "the audit chain did not verify; this run is discarded, not "
             f"reported ({poisoned})"
         )
+    if disabled_checks:
+        notes.append(
+            "checks " + ",".join(str(c) for c in sorted(disabled_checks))
+            + " were ablated; this run is an ablation row and may not be quoted "
+            "as a configuration result"
+        )
+    if containment is not None and containment.breaches:
+        notes.append(
+            f"{len(containment.breaches)} non-local socket(s) refused during "
+            "this run (REQ-10); the run is reported and the breach is named"
+        )
+    if taint is not None and taint.refusals:
+        notes.append(
+            f"the field-admission policy refused {len(taint.refusals)} value(s) "
+            "at the tool boundary"
+        )
+    unresolved = [r for r in recoveries if r.get("outcome") == "unresolved"]
+    if unresolved:
+        notes.append(
+            f"{len(unresolved)} reservation(s) the recovery scan could not "
+            "resolve; they are held, not skipped, and the chain names them"
+        )
+    if arm is not None and getattr(arm, "webhook_errors", None):
+        notes.append(
+            f"{len(arm.webhook_errors)} webhook(s) the kernel could not ingest"
+        )
 
     return RunRecord(
-        run_id=sha256_of(
-            {"seed": seed, "task": task_id, "case": attack_id, "config": config}
+        run_id=run_id_for(
+            seed=seed, task_id=task_id, case_id=attack_id, config=config
         ),
         seed=seed,
         task_id=task_id,
@@ -260,6 +575,8 @@ def run_case(
         attacker_win=attacker_win,
         task_success=_task_succeeded(task, plan, ledger),
         ledger=ledger,
+        refunds=refunds,
+        mandates=mandates,
         log_head=world.log.head(),
         log_entries=len(world.log),
         plan={
@@ -274,8 +591,18 @@ def run_case(
         error=error,
         notes=notes,
         decisions=decisions,
+        recoveries=recoveries,
         chain_head=chain_head,
         chain_entries=chain_entries,
         chain_path=chain_path,
         poisoned=poisoned,
+        latency_us=percentiles([t["latency_us"] for t in tools.timings]),
+        money_calls=list(tools.timings),
+        guard_events=list(getattr(agent, "guard_events", [])),
+        taint=taint.summary() if taint is not None else {},
+        extractor=extractor.summary() if extractor is not None else {},
+        guardrail=screen.summary() if screen is not None else {},
+        disabled_checks=sorted(disabled_checks),
+        containment=containment.as_dict() if containment is not None else {},
+        corpus_manifest=current_hash(),
     )

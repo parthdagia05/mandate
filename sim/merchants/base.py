@@ -133,3 +133,14 @@ class Merchant:
 
     def support(self, topic: str) -> MerchantResponse:
         raise NotImplementedError
+
+    def order_status(self, payment_id: str) -> MerchantResponse:
+        """What the merchant says happened to a payment the rail already took.
+
+        This is the only storefront call that speaks about a *settled* debit,
+        and it is where ``webhook.payload`` lands: the merchant is relaying what
+        it claims the PSP told it, which is content, not a callback the kernel
+        verified. Classes A5 and A6 both go through here, because both need the
+        agent to believe a completed payment did not complete.
+        """
+        raise NotImplementedError

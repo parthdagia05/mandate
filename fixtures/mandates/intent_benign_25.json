@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA005C976ANPW1FC8131",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "SVkyMvTQY7ELfyQQrROEWw",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:44fb4096f56ad390e3c1d6f84d3a872cf63a16c865257855862b457c9d1a0dfe",
+  "scope": {
+    "max_amount": 200000,
+    "per_txn_cap": 100000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "merchant@upi"
+      }
+    ],
+    "allowed_categories": [
+      "accessories",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "dqjVaGEHLQ4ja_uNDEf6DGbeKqGoJTlkbLb2digigBzW3XtDx3-fOtCDw9J_WYCSKM_lWgUMr7p8dQLAH9ePXw"
+}
