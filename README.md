@@ -55,7 +55,13 @@ that cannot stay quiet makes every arm look equally lost. It found a real bug
 the day it was written — the checkout page's own payee line was redirecting
 benign refunds, so A7's oracle fired on clean runs.
 
-M6 is next: the numbers.
+M6 is in progress: the numbers. The runner is the first piece of it — `mk suite`
+runs a whole dataset in one process, one kernel per case, and writes one JSONL
+line per case carrying the run id, the seed, the arm, the model, the two
+outcomes, every kernel decision, the audit head, the p50/p99 of the run's
+money-moving calls and the hash of the corpus that produced it. The configs, the
+ablation, the confidence intervals and `results.md` come next, and every one of
+them is computed from those lines.
 
 ## Setup
 
@@ -115,6 +121,54 @@ python3 mk.py run --attack A4-seed-1 --config kernel
 #    kernel:     RECURRENCE_NOT_AUTHORISED, denied_by [5], and the purchase
 #                the user did ask for still completes.
 ```
+
+## Running a whole dataset
+
+`mk run` is one case. `mk suite` is the dataset, and it produces the file every
+number in `results.md` is computed from.
+
+```bash
+# The benign suite, both arms. The first is benign utility; the difference
+# between them is the false-block rate, and it is expected to be non-zero.
+python3 mk.py suite --dataset benign --config undefended
+python3 mk.py suite --dataset benign --config kernel
+
+# All 105 development cases, undefended. This is the number that has to be
+# high, because if the attacks do not land there is nothing to defend.
+python3 mk.py suite --dataset batch_a --config undefended
+
+# One class at a time while developing.
+python3 mk.py suite --dataset batch_a --class A1 --config kernel
+```
+
+Each run writes `runs/<suite_id>.jsonl` — one line per case — and a
+`.meta.json` beside it with the counts, the corpus hash and the machine that
+took the measurement. The CPU is recorded because the overhead column is the
+one number a different machine would move.
+
+Three properties of the runner are load-bearing rather than incidental:
+
+**One kernel per case, with its own SQLite file.** The kernel's stores are
+global to a database — check 6's replay window and check 7's idempotency key
+space both are — so a shared database would judge case 40 against 39 cases of
+history it was never written against, and the JSONL it produced would look
+exactly like a correct one.
+
+**Cases run in sequence, and a second suite in the same process is refused.**
+SQLite has a single writer. Two suites at once would still each produce a
+complete file, and the only trace of the collision would be a p99 that was
+really a measurement of lock contention. Parallelism is across processes: to
+measure three configs at once, start three of them.
+
+**A case that could not run is still a line.** A suite of 105 that emits 103
+lines has a denominator that quietly shrank when things went badly, and every
+proportion computed from it is biased in the defence's favour.
+
+The corpus is hashed before the first case and verified again after the last.
+Every line quotes the hash taken at the start, so an edit made *while* a suite
+was running would be invisible to the lines themselves; the check at the end is
+what turns "the corpus did not change" from an assumption into a refusal to
+publish.
 
 ## Prove it — M2
 

@@ -4,8 +4,10 @@ M1 wired up ``hash-cart``, ``verify-chain`` and ``verify-fixtures``. M2 added
 ``run``, which is the one a reader who has not read the code types first. M3
 adds ``explain`` — the narrator over the audit chain — and ``run --config
 kernel`` and ``run --fault``. M4 adds ``faults``, which lists what can be armed
-and the exact ``run`` line that arms it. Later milestones add ``corpus``,
-``oracles``, ``matrix`` and ``ablate`` alongside them.
+and the exact ``run`` line that arms it. M5 adds ``corpus`` and ``oracles``, and
+M6 adds ``suite`` — the same run, over a whole dataset, written down as the
+JSONL that ``results.md`` is computed from. ``matrix`` and ``ablate`` come after
+it and are built on top of it.
 
 **Faults are armed on the run, not before it.** ``mk run --fault NAME[:TARGET]``
 rather than a separate stateful command, because each run builds its own seeded
@@ -528,6 +530,124 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0 if record.error is None else 1
 
 
+def cmd_suite(args: argparse.Namespace) -> int:
+    """Run a whole dataset and write the JSONL a results table is computed from.
+
+    Prints a line per case as it lands rather than a bar that fills, because a
+    hundred cases take minutes and the useful thing to watch is *which* case is
+    winning — a class that suddenly stops landing is visible here and invisible
+    in a percentage at the end.
+
+    The proportions printed at the end are bare fractions. Confidence intervals
+    are deliberately not computed here: n is 15 per class and a point estimate
+    is not a fact, so the interval belongs beside the number in ``results.md``
+    rather than in a progress summary somebody might quote from a terminal.
+    """
+    from harness.suite import run_suite, select
+
+    try:
+        cases = select(
+            args.dataset,
+            attack_class=args.attack_class,
+            task=args.task,
+            limit=args.limit,
+        )
+    except ValueError as exc:
+        print(f"mk suite: {exc}", file=sys.stderr)
+        return 2
+
+    print(
+        f"suite {args.dataset}  config {args.config}  seed {args.seed}  "
+        f"model {args.model}"
+    )
+    print(f"{len(cases)} case{'' if len(cases) == 1 else 's'}, in sequence, one kernel each")
+    print()
+
+    def progress(index: int, total: int, record) -> None:
+        win = "WIN " if record.attacker_win else "    "
+        task = "task-ok" if record.task_success else "task-no"
+        micros = record.latency_us.get("p50", 0)
+        flag = ""
+        if record.poisoned:
+            flag = "  POISONED, discarded"
+        elif record.error:
+            flag = f"  {record.error}"
+        print(
+            f"  {index:>4}/{total}  {record.case_id or record.task_id:<14} "
+            f"{win} {task}  {micros / 1000:>7.1f}ms{flag}"
+        )
+
+    try:
+        result = run_suite(
+            cases,
+            dataset=args.dataset,
+            config=args.config,
+            seed=args.seed,
+            model=args.model,
+            out=Path(args.out) if args.out else None,
+            cassette=Path(args.cassette) if args.cassette else None,
+            progress=None if args.quiet else progress,
+        )
+    except (RuntimeError, NotImplementedError, ValueError) as exc:
+        print(f"mk suite: {exc}", file=sys.stderr)
+        return 1
+
+    scored = len(result.scored)
+    print()
+    print(
+        f"{len(result.records)} case(s), {scored} scored, "
+        f"{len(result.errors)} error(s), {len(result.poisoned)} poisoned"
+    )
+    if scored:
+        print(f"attacker wins   {result.attacker_wins:>4}/{scored}  {_pct(result.attacker_wins, scored)}")
+        print(f"task success    {result.task_successes:>4}/{scored}  {_pct(result.task_successes, scored)}")
+    latency = result.latency_us
+    print(
+        f"money calls     n={latency['n']}  p50 {latency['p50']}us  "
+        f"p99 {latency['p99']}us"
+    )
+    print(f"corpus          {result.corpus_manifest}")
+    print(f"records         {result.path}")
+    print(f"meta            {result.meta_path}")
+    print(f"suite_id        {result.suite_id}")
+
+    # Every note any run raised, once each. The scripted stand-in raises one on
+    # every line, and printing it 105 times would train the reader to skip it.
+    notes = {note for record in result.records for note in record.notes}
+    for note in sorted(notes):
+        print(f"note            {note}")
+    if scored:
+        print()
+        print(
+            "Bare fractions. n is 15 per class and a point estimate on 15 is "
+            "not a fact — the interval belongs in results.md, not here."
+        )
+
+    if result.corpus_drift:
+        print(file=sys.stderr)
+        print(
+            "the corpus moved while this suite was running, so every line "
+            "above quotes a hash that is no longer true and none of it may be "
+            "published:",
+            file=sys.stderr,
+        )
+        for difference in result.corpus_drift:
+            print(f"  {difference}", file=sys.stderr)
+        return 1
+    if result.poisoned:
+        print(
+            f"\n{len(result.poisoned)} run(s) had an audit chain that did not "
+            "verify; they are discarded, not reported",
+            file=sys.stderr,
+        )
+        return 1
+    return 1 if result.errors else 0
+
+
+def _pct(part: int, whole: int) -> str:
+    return f"({100.0 * part / whole:.1f}%)" if whole else "(n/a)"
+
+
 def cmd_faults(args: argparse.Namespace) -> int:
     """List what can be armed, where it fires, and the line that arms it.
 
@@ -736,6 +856,58 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--json", action="store_true", help="print the run record only")
     run.set_defaults(func=cmd_run)
+
+    suite = sub.add_parser(
+        "suite",
+        help="run a whole dataset and write one JSONL line per case",
+        description=(
+            "Cases run in sequence in one process, each with its own kernel and "
+            "its own SQLite file. Parallelism is across runs: to measure three "
+            "configs at once, start three processes."
+        ),
+    )
+    suite.add_argument(
+        "--dataset",
+        required=True,
+        choices=["benign", "batch_a", "batch_b"],
+        help="benign (25 tasks, no payload) or a batch of 105 attack cases",
+    )
+    suite.add_argument(
+        "--config",
+        default="undefended",
+        choices=["undefended", "model-only", "kernel"],
+        help="which arm of the experiment",
+    )
+    suite.add_argument(
+        "--class",
+        dest="attack_class",
+        default=None,
+        help="run one attack class only, e.g. A1",
+    )
+    suite.add_argument(
+        "--task", default=None, help="run only the cases written against this task"
+    )
+    suite.add_argument(
+        "--limit", type=int, default=None, help="stop after this many cases"
+    )
+    suite.add_argument(
+        "--seed",
+        default="0",
+        help="the run seed; the same seed reproduces every case byte for byte",
+    )
+    suite.add_argument(
+        "--model", default="auto", help="auto | scripted | cassette | live | a model id"
+    )
+    suite.add_argument("--cassette", default=None, help="recorded model replies")
+    suite.add_argument(
+        "--out",
+        default=None,
+        help="where to write the JSONL (default runs/<suite_id>.jsonl)",
+    )
+    suite.add_argument(
+        "--quiet", action="store_true", help="summary only, no line per case"
+    )
+    suite.set_defaults(func=cmd_suite)
 
     corpus = sub.add_parser(
         "corpus", help="count the corpus and check the manifest hash has not moved"

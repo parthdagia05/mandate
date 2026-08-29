@@ -31,6 +31,7 @@ headline measurement invalidated the hash the headline is published under.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,7 @@ __all__ = [
     "write_manifest",
     "read_manifest",
     "verify_manifest",
+    "current_hash",
 ]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -153,3 +155,22 @@ def verify_manifest() -> tuple[str | None, list[str]]:
         )
 
     return recorded.get("manifest_hash"), differences
+
+
+@lru_cache(maxsize=1)
+def current_hash() -> str:
+    """The corpus as it is on disk *now*, hashed once per process.
+
+    Every run record carries this (SPEC.md §11), so a results table can be
+    traced back to the exact corpus that produced it. It is **computed, not
+    read from** ``manifest.json``: a record that quoted the frozen file would
+    keep quoting it after somebody edited a payload, which is the one thing the
+    field exists to detect.
+
+    Cached because a suite is one process running its cases in sequence, and
+    hashing every fixture and all 235 corpus files once per case would put the
+    manifest inside the overhead measurement. The cache is why a suite verifies
+    the manifest at the end as well as at the start — an edit made while the
+    suite was running is invisible to this function and visible to that check.
+    """
+    return build_manifest()["manifest_hash"]

@@ -10,6 +10,15 @@ The shape of a run, and why it is this shape:
    webhooks still in flight. A run that reported its ledger mid-delivery would
    report a different ledger depending on when it looked.
 5. Score with the case's oracle, over the ledger.
+6. Write the line down, including what it cost and which corpus produced it.
+
+Step 6 is the one place the record is not a function of the seed. Two runs of
+one seed agree on every other byte; they will not agree on ``latency_us``,
+which is why a measured duration reaches the run record and never the event log
+or the audit chain. ``corpus_manifest`` is the other half of that line's
+provenance: it is computed from disk at run time, not read out of
+``harness/manifest.json``, so a record cannot go on quoting a frozen hash after
+somebody has edited a payload.
 
 The barrier in step 4 goes through :class:`~sim.control.ControlPlane` rather
 than calling ``World.advance`` directly, so the single-process path exercises
@@ -19,6 +28,7 @@ the same code the socket serves. Two paths that could disagree eventually do.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -28,13 +38,22 @@ from agent.planner import PlanResult, UndefendedAgent
 from agent.tools import KernelTools, UndefendedTools
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
+from harness.manifest import current_hash
 from harness.oracles import Authority, LedgerView, oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
 from sim.faults import KernelCrashed
 from sim.world import World
 
-__all__ = ["CONFIGS", "MAX_SETTLE_ADVANCES", "RunRecord", "run_case"]
+__all__ = [
+    "CONFIGS",
+    "MAX_SETTLE_ADVANCES",
+    "RunRecord",
+    "check_config",
+    "percentiles",
+    "run_case",
+    "run_id_for",
+]
 
 #: The three arms of the experiment (SPEC.md §11). M2 implements the first;
 #: the names exist now so the run record's schema does not change under the
@@ -93,9 +112,91 @@ class RunRecord:
     #: reported** — the harness refuses to score it rather than publishing a
     #: number produced by a kernel whose own record is untrustworthy.
     poisoned: str | None = None
+    #: ``{"n", "p50", "p99"}`` in microseconds, over this run's money-moving
+    #: tool calls, measured at the tool boundary in **every** arm (see
+    #: :func:`agent.tools.timed`). One run makes two or three such calls, so
+    #: these are a per-run summary and not the published figure: the overhead
+    #: column in ``results.md`` is computed over every call in a whole suite,
+    #: and it is a *difference* between arms.
+    #:
+    #: The one field in this record that is not a function of the seed. Two
+    #: runs of one seed agree on every other byte and will not agree here,
+    #: which is why no duration reaches the event log or the audit chain.
+    latency_us: dict[str, int] = field(default_factory=dict)
+    #: The raw samples behind ``latency_us``: one ``{"call", "latency_us"}``
+    #: per completed money-moving tool call, in call order. Kept because a
+    #: suite's percentile has to be taken over the pooled calls — a p99 of
+    #: per-run p99s is a p99 of nothing — and because ``pay`` and ``refund``
+    #: cost different amounts, which a single per-run figure hides.
+    money_calls: list[dict[str, Any]] = field(default_factory=list)
+    #: The hash of the corpus that produced this line, computed from disk at
+    #: run time rather than read from ``harness/manifest.json`` (REQ-11). A
+    #: results table whose lines do not all carry the manifest hash published
+    #: beside it was measured against a corpus nobody can reconstruct.
+    corpus_manifest: str = ""
 
     def to_json(self) -> str:
         return json.dumps(self.__dict__, sort_keys=True)
+
+
+def check_config(config: str) -> None:
+    """Refuse an arm that does not exist, or one that is not built yet.
+
+    Split out of :func:`run_case` so a suite can refuse **before** it opens an
+    output file and runs a hundred cases into it. A partially written JSONL
+    whose every line is the same ``NotImplementedError`` is a worse way to
+    learn the arm is missing than one message on the way in.
+    """
+    if config not in CONFIGS:
+        raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
+    if config == "model-only":
+        raise NotImplementedError(
+            "config 'model-only' arrives in M6; it is the arm that measures the "
+            "agent-side taint guard on its own, and reporting it before it "
+            "exists would put a number in the table for a defence nobody built"
+        )
+
+
+def run_id_for(
+    *, seed: str, task_id: str | None, case_id: str | None, config: str
+) -> str:
+    """The line's ``run_id``. A function of the experiment, not of the clock.
+
+    Deterministic on purpose: re-running one case of a suite reproduces its
+    ``run_id``, so a line in an old JSONL and the run that reproduces it are
+    the same identifier rather than two. A uuid would make every re-run look
+    like new evidence.
+
+    Shared with the suite so a case that *failed* gets the same id it would
+    have had if it had passed — an error line nobody can join back to the case
+    it came from is a hole in the record, and a run that crashed is exactly
+    when the join matters.
+    """
+    return sha256_of({"seed": seed, "task": task_id, "case": case_id, "config": config})
+
+
+def percentiles(samples: list[int]) -> dict[str, int]:
+    """``n``, ``p50`` and ``p99`` over a list of microsecond durations.
+
+    Nearest-rank on the sorted sample, no interpolation: every value reported
+    is a duration that was actually measured, rather than one between two that
+    were. At small ``n`` interpolation invents a number, and this is a project
+    that has already committed to saying when ``n`` is small.
+
+    ``n`` is reported beside the two percentiles for the same reason the
+    results table carries a confidence interval. A p99 over three samples is
+    the maximum of three samples, and a reader who cannot see ``n`` has no way
+    to know that is what they are looking at.
+    """
+    if not samples:
+        return {"n": 0, "p50": 0, "p99": 0}
+    ordered = sorted(samples)
+
+    def at(quantile: float) -> int:
+        rank = math.ceil(quantile * len(ordered))
+        return ordered[min(len(ordered), max(1, rank)) - 1]
+
+    return {"n": len(ordered), "p50": at(0.50), "p99": at(0.99)}
 
 
 def _settle(plane: ControlPlane) -> int:
@@ -158,14 +259,7 @@ def run_case(
     export_chain: Path | None = None,
     faults: list[dict[str, Any]] | None = None,
 ) -> RunRecord:
-    if config not in CONFIGS:
-        raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
-    if config == "model-only":
-        raise NotImplementedError(
-            "config 'model-only' arrives in M6; it is the arm that measures the "
-            "agent-side taint guard on its own, and reporting it before it "
-            "exists would put a number in the table for a defence nobody built"
-        )
+    check_config(config)
 
     case: AttackCase | None = load_attack(attack_id) if attack_id else None
     if case is not None:
@@ -312,8 +406,8 @@ def run_case(
         )
 
     return RunRecord(
-        run_id=sha256_of(
-            {"seed": seed, "task": task_id, "case": attack_id, "config": config}
+        run_id=run_id_for(
+            seed=seed, task_id=task_id, case_id=attack_id, config=config
         ),
         seed=seed,
         task_id=task_id,
@@ -344,4 +438,7 @@ def run_case(
         chain_entries=chain_entries,
         chain_path=chain_path,
         poisoned=poisoned,
+        latency_us=percentiles([t["latency_us"] for t in tools.timings]),
+        money_calls=list(tools.timings),
+        corpus_manifest=current_hash(),
     )
