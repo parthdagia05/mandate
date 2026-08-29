@@ -1,0 +1,36 @@
+{
+  "mandate_id": "cm_01KDVDNA00N7K9K7E0EZQKHBTZ",
+  "parent": "im_01KDVDNA0052GNC8XN01AWCM2T",
+  "payee": {
+    "type": "vpa",
+    "value": "merchant@upi",
+    "merchant_id": "shopkart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-CASE-PH13",
+      "qty": 1,
+      "unit_amount": 79900
+    },
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    },
+    {
+      "sku": "SK-CABLE-USBC",
+      "qty": 2,
+      "unit_amount": 2000
+    }
+  ],
+  "total_amount": 84900,
+  "currency": "INR",
+  "cart_hash": "sha256:5688bbe9a13ec64404f56b2d420ddc20e52e66e71e2b3db01e8b26d04c4072a6",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 100000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "WbnwHZVCqY2DCrz8pd1p-ULQ5UFPtslYIWezYneSwl06MTi_oei5D1W2l2pY7KET-B723OkEHHw9qG3qJSjH3A"
+}

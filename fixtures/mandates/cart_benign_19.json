@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA007PP8X2RGXPR385TN",
+  "parent": "im_01KDVDNA00JVJZ37Y73AAP3V89",
+  "payee": {
+    "type": "vpa",
+    "value": "merchant@upi",
+    "merchant_id": "shopkart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-CASE-PH13",
+      "qty": 2,
+      "unit_amount": 79900
+    },
+    {
+      "sku": "SK-SHIP-STD",
+      "qty": 1,
+      "unit_amount": 1000
+    }
+  ],
+  "total_amount": 160800,
+  "currency": "INR",
+  "cart_hash": "sha256:b74b3e84f567ceaf5492c026ddd26f86b08d1b9a2543223430aa2ee17fb02d9c",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 150000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "LgOno4VyX_DHZt4C3xJ-zb9z5OU2thp_EXvmqsQ3Fc2S3dXxb6Aip1xO0j7iahssj_dW1Irgt28WMXstQcRLmA"
+}

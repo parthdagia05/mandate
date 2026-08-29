@@ -1,9 +1,9 @@
 {
-  "sig": "6hOMfjYhehRscFJ5OZc207rw7nuaeHYN1ndkblh6VrhBEUJsDYaEXxbij_nccyg1MQL8CI9X-nWAv2nozKBoCg",
+  "sig": "qwyMJwp0CVdZStcUl1HNismDB4C1dr6EvFDv06gZwYpADdaKWE1lJUQPOgqdjrvvKMOh5MFWpk9XbsvIfbbmng",
   "confirmed_by": "user",
   "instrument": {
     "token": "tok_scoped_01",
-    "max_amount": 50000,
+    "max_amount": 60000,
     "expires_at": "2026-01-01T00:15:00Z"
   },
   "cart_hash": "sha256:1e505f9fa8683ed290ab250fd02d97d4a91782adbb634b7149abfb0a594d8a30",

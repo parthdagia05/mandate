@@ -9,7 +9,7 @@
   },
   "agent": {
     "agent_id": "a_shopper",
-    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFIMa4bStblR66LIZwkE4zimmWUTZCzCxYpA78xvd1H0tNHC-6ZD8yghYeQG2gstufo0Uda8gB37ZrekFy4sujg"
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
   },
   "utterance_hash": "sha256:aa58c0aee2e1ee4d0a00dbda1eabda1277b94fafd7ecd171f3c6dfba21b81a4b",
   "scope": {
@@ -23,10 +23,11 @@
       }
     ],
     "allowed_categories": [
-      "electronics"
+      "electronics",
+      "shipping"
     ],
     "max_transactions": 3,
     "recurring": false
   },
-  "sig": "BG6FgppxuJqdex1tBipDK61C-ukLhLCg8yG-JE-DBDs8jYqlz_7B00v0pTmnQlgryxb_ukLkMr2DVXfz1VNNSA"
+  "sig": "nTbaPoBvYxg2eTeoJb2n41IuiXsGHgJ--FPFPbFCnNqxZRE9UTkZuZm109QfpjWKC7X-8lsXU_DpkCiUwxS37A"
 }

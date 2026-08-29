@@ -806,6 +806,14 @@ class KernelService:
                 cart.currency,
                 self._client_ref,
                 payee=cart.payee,
+                # The rail records what the debit is for, in both arms. An
+                # oracle that could only read a cart hash off the undefended
+                # ledger would return ``False`` for the kernel arm by
+                # construction, and an oracle that cannot fire against the
+                # system under test reads as a perfect defence — the exact
+                # failure S-02 exists to catch.
+                cart_hash=cart.cart_hash,
+                line_items=[item.model_dump(mode="json") for item in cart.line_items],
             )
             payment = self._psp.authorize(
                 order.order_id, self._instrument_token, idem=idem

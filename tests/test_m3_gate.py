@@ -339,8 +339,17 @@ def test_the_chain_a_run_exports_verifies_standalone(tmp_path):
 
 
 def test_a_task_with_no_signed_mandates_refuses_rather_than_minting_one():
-    """Signing at run time would have the kernel check the harness's own work."""
-    from harness.kernel_arm import TaskHasNoMandates
+    """Signing at run time would have the kernel check the harness's own work.
 
+    Every shipped task carries mandates now — M5 signs a pair per task — so the
+    task with none has to be constructed. That is the right shape for this test
+    anyway: it is about what the kernel arm does with an authority that does not
+    exist, not about which fixtures happen to be missing this week.
+    """
+    from harness.corpus import Task
+    from harness.kernel_arm import KernelArm, TaskHasNoMandates
+    from sim.world import World
+
+    bare = Task({"task_id": "benign-x", "merchant": "shopkart", "expect": {}})
     with pytest.raises(TaskHasNoMandates):
-        run_case("benign-02", config="kernel", model="scripted")
+        KernelArm(task=bare, world=World(seed="0"), client_ref="ref_x")

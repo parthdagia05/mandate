@@ -49,6 +49,7 @@ class SimEvent(StrEnum):
     ORDER_CREATED = "psp.order_created"
     AUTHORIZED = "psp.authorized"
     CAPTURED = "psp.captured"
+    MANDATE_CREATED = "psp.mandate_created"
     REFUND_CREATED = "psp.refund_created"
     REFUND_PROCESSED = "psp.refund_processed"
     POLLED = "psp.polled"

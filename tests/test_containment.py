@@ -59,6 +59,23 @@ def test_an_attack_run_opens_no_non_local_socket(no_outbound_sockets):
     assert record.attacker_win, "the run has to actually happen for this to mean anything"
 
 
+@pytest.mark.parametrize("attack_class", [f"A{n}" for n in range(1, 8)])
+def test_every_class_runs_inside_the_sandbox(no_outbound_sockets, attack_class):
+    """One reference case per class, because the classes reach different code.
+
+    A5 and A6 make extra money calls, A4 opens a standing instruction and A7
+    raises a credit. Testing containment on A1 alone would leave the paths that
+    were added last untested — which is exactly where a live call would be
+    added by accident.
+    """
+    from harness.selftest import SELFTEST_CASES
+
+    record = run_case(
+        config="undefended", attack_id=SELFTEST_CASES[attack_class], model="scripted"
+    )
+    assert record.attacker_win, "the run has to actually happen for this to mean anything"
+
+
 def test_a_benign_run_opens_no_non_local_socket(no_outbound_sockets):
     assert run_case("benign-01", config="undefended", model="scripted").task_success
 

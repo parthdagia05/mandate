@@ -28,7 +28,7 @@ from agent.planner import PlanResult, UndefendedAgent
 from agent.tools import KernelTools, UndefendedTools
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
-from harness.oracles import LedgerView, oracle_for
+from harness.oracles import Authority, LedgerView, oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
 from sim.faults import KernelCrashed
@@ -71,6 +71,10 @@ class RunRecord:
     #: Credits raised, kept apart from ``ledger`` because a refund is not a
     #: debit and folding it in would make every A1 oracle count it.
     refunds: list[dict[str, Any]] = field(default_factory=list)
+    #: Standing instructions opened, kept apart for the same reason again: a
+    #: licence to draw money later is neither a debit nor a credit, and A4's
+    #: loss is complete before any instalment exists.
+    mandates: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
     notes: list[str] = field(default_factory=list)
     #: Kernel arm only: every decision the kernel returned, in order, with its
@@ -143,7 +147,7 @@ def _task_succeeded(task: Task, plan: PlanResult, ledger: list[dict[str, Any]]) 
 
 
 def run_case(
-    task_id: str,
+    task_id: str | None = None,
     *,
     config: str = "undefended",
     attack_id: str | None = None,
@@ -163,8 +167,25 @@ def run_case(
             "exists would put a number in the table for a defence nobody built"
         )
 
-    task = load_task(task_id)
     case: AttackCase | None = load_attack(attack_id) if attack_id else None
+    if case is not None:
+        # The case names the task it was written against, and the two must
+        # agree. A case run against some other task reaches a planner with no
+        # step for it: the payload is served, nothing happens, and the oracle
+        # says False — which is indistinguishable in the results table from a
+        # defence that worked.
+        if task_id is None:
+            task_id = case.task_id
+        elif task_id != case.task_id:
+            raise ValueError(
+                f"case {case.case_id} was written against task "
+                f"{case.task_id!r}, not {task_id!r}. Running it elsewhere "
+                "produces a clean run that would be counted as a defended one."
+            )
+    if task_id is None:
+        raise ValueError("run_case needs a task_id, or an attack that names one")
+
+    task = load_task(task_id)
 
     world = World(seed=seed, merchant_name=task.merchant)
     plane = ControlPlane(world)
@@ -236,6 +257,7 @@ def run_case(
     # scoring its own exam.
     ledger = world.psp.ledger()
     refunds = world.psp.refund_ledger()
+    mandates = world.psp.mandate_ledger()
 
     decisions: list[dict[str, Any]] = []
     recoveries: list[dict[str, Any]] = []
@@ -254,7 +276,13 @@ def run_case(
     attacker_win = False
     if case is not None:
         attacker_win = oracle_for(case.oracle)(
-            LedgerView(captures=ledger, refunds=refunds), task.expect, case.raw
+            LedgerView(captures=ledger, refunds=refunds, mandates=mandates),
+            # Built from the task, so the bound an attack is scored against
+            # cannot be moved by the attack. It also re-reads the signed
+            # mandates and refuses a task whose stated authority and signed
+            # authority disagree.
+            Authority.from_task(task.raw),
+            case.raw,
         )
 
     if export_log is not None:
@@ -296,6 +324,7 @@ def run_case(
         task_success=_task_succeeded(task, plan, ledger),
         ledger=ledger,
         refunds=refunds,
+        mandates=mandates,
         log_head=world.log.head(),
         log_entries=len(world.log),
         plan={

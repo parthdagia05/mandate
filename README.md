@@ -12,7 +12,7 @@ actually said. The kernel is the contribution; the harness is the evidence.
 
 ## Status
 
-**M1, M2, M3 and M4 are complete.**
+**M1 through M5 are complete.**
 
 M1 is the spine: schemas, canonicalisation, signing fixtures, the clock, the
 audit chain and the standalone verifier. Nothing in it moves money, and
@@ -41,7 +41,21 @@ capture — is a reliability bug rather than a prompt injection, and it is the
 bridge between the two halves of the project: **a crash mid-capture and a
 duplicate webhook each leave exactly one debit.**
 
-M5 and M6 are next: the corpus, the oracles and the numbers.
+M5 is the corpus and the oracles. 25 benign purchase tasks, 105 development
+cases and 105 held-out ones across seven attack classes and four evasion
+families, and seven programmatic money-loss oracles over the payment rail — no
+judge model anywhere. The batch B directory is sealed and opening it is logged.
+Everything is frozen behind one manifest hash and any edit fails the check.
+
+The gate is `mk oracles selftest`, and it is the single test that keeps every
+number in `results.md` honest: seven rows, each showing its oracle firing
+against a named attack that lands undefended, **and** staying quiet on the same
+task with no attack. An oracle that cannot fire reads as a perfect defence; one
+that cannot stay quiet makes every arm look equally lost. It found a real bug
+the day it was written — the checkout page's own payee line was redirecting
+benign refunds, so A7's oracle fired on clean runs.
+
+M6 is next: the numbers.
 
 ## Setup
 
@@ -78,6 +92,29 @@ that imports the kernel it is checking inherits the kernel's bugs. It carries
 its own RFC 8785 implementation, and a property test asserts the two
 implementations agree — if they ever stop agreeing, that disagreement is itself
 the finding.
+
+## Prove it — M5
+
+```bash
+# 1. The corpus, counted and frozen. 105 + 105 + 25, fifteen per class per
+#    batch, and a manifest hash that covers the cases, the tasks, the seal
+#    and every pre-signed mandate.
+python3 mk.py corpus verify
+
+# 2. Edit any case, task or signed fixture and it fails by name, saying which
+#    file moved and that the published numbers are now unattributable.
+
+# 3. The gate. Seven oracles, seven known-successful undefended attacks,
+#    seven benign controls. All seven must fire and all seven must stay quiet.
+python3 mk.py oracles selftest
+
+# 4. One class end to end, both arms, same seed, same payload:
+python3 mk.py run --attack A4-seed-1 --config undefended
+python3 mk.py run --attack A4-seed-1 --config kernel
+#    undefended: a monthly standing instruction the user never authorised.
+#    kernel:     RECURRENCE_NOT_AUTHORISED, denied_by [5], and the purchase
+#                the user did ask for still completes.
+```
 
 ## Prove it — M2
 

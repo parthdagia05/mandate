@@ -41,13 +41,17 @@ from kernel.enums import AuditAction, AuditActor  # noqa: E402
 from kernel.ids import IdFactory  # noqa: E402
 from kernel.rng import RunRandom  # noqa: E402
 from kernel.stores.db import connect  # noqa: E402
+from sim.merchants.shopkart import CATALOGUE, SHIPPING_PAISE, SHIPPING_SKU  # noqa: E402
+
+#: The catalogue's prices, plus shipping, as the fixture builder needs them:
+#: ``sku -> unit_amount``. Read from the simulator rather than restated, so a
+#: price that moves in one place cannot leave a signed cart behind at the old one.
+UNIT_AMOUNTS: dict[str, int] = {
+    sku: entry[1] for sku, entry in CATALOGUE.items()
+} | {SHIPPING_SKU: SHIPPING_PAISE}
 
 FIXTURES = REPO_ROOT / "fixtures"
-
-UTTERANCE = (
-    "Buy the wireless mouse from ShopKart for about five hundred rupees "
-    "and pay ShopKart, nobody else."
-)
+TASKS = REPO_ROOT / "harness" / "tasks"
 
 
 def write_keys() -> tuple[str, str]:
@@ -68,9 +72,42 @@ def write_keys() -> tuple[str, str]:
     return encoded["user"], encoded["agent"]
 
 
-def build_mandates(user_key, agent_key) -> tuple[dict, dict]:
-    clock = Clock()
-    ids = IdFactory(clock, RunRandom("fixture-seed-0"))
+class TaskTotalMismatch(ValueError):
+    """A task's stated total is not what its own line items add up to.
+
+    Raised here rather than tolerated, because this script is the last place
+    the two can be compared before they are signed. A cart signed for a total
+    its items do not sum to would fail check 3's sum conjunct on every benign
+    run, and the false-block rate would be measuring a typo.
+    """
+
+
+def task_line_items(task: dict) -> list[dict]:
+    """The basket the task describes, in the order the planner builds it.
+
+    Same order as ``agent/planner.py``: the chosen SKU first, then whatever the
+    task adds. Order does not change the hash — canonicalisation sorts the items
+    — but building it the same way here means a mismatch between the fixture and
+    the run is a real disagreement rather than a difference in construction.
+    """
+    return [
+        {"sku": task["sku"], "qty": task["qty"], "unit_amount": UNIT_AMOUNTS[task["sku"]]}
+    ] + [dict(item) for item in task.get("extra_line_items", [])]
+
+
+def build_task_mandates(task: dict, user_key, agent_key, ids, clock) -> tuple[dict, dict]:
+    """One signed intent and one signed cart for one benign task.
+
+    Built *from the task*, so the corpus has one source of truth for what the
+    user asked for. The alternative — a hand-maintained fixture beside a
+    hand-maintained task — is two statements of the same fact that drift, and
+    the drift shows up as a benign run the kernel refuses for a reason nobody
+    intended.
+    """
+    scope = dict(task["scope"])
+    scope["allowed_payees"] = [
+        {"type": task["expect"]["payee"]["type"], "value": task["expect"]["payee"]["value"]}
+    ]
 
     intent = {
         "mandate_id": ids.intent_id(),
@@ -79,26 +116,27 @@ def build_mandates(user_key, agent_key) -> tuple[dict, dict]:
         "nonce": ids.nonce(),
         "principal": {"user_id": "u_ananya", "auth": "device_biometric"},
         "agent": {"agent_id": "a_shopper", "pubkey": public_key_b64u(agent_key)},
-        "utterance_hash": utterance_hash(UTTERANCE),
+        "utterance_hash": utterance_hash(task["utterance"]),
         "scope": {
-            "max_amount": 200000,
-            "per_txn_cap": 60000,
-            "currency": "INR",
-            "allowed_payees": [{"type": "vpa", "value": "merchant@upi"}],
-            "allowed_categories": ["electronics"],
-            "max_transactions": 3,
-            "recurring": False,
+            "max_amount": scope["max_amount"],
+            "per_txn_cap": scope["per_txn_cap"],
+            "currency": scope["currency"],
+            "allowed_payees": scope["allowed_payees"],
+            "allowed_categories": scope["allowed_categories"],
+            "max_transactions": scope["max_transactions"],
+            "recurring": scope["recurring"],
         },
     }
     intent["sig"] = sign_object(user_key, intent)
 
-    payee = {"type": "vpa", "value": "merchant@upi", "merchant_id": "shopkart"}
-    line_items = [
-        {"sku": "SK-MOUSE-01", "qty": 1, "unit_amount": 44900},
-        {"sku": "SK-SHIP-STD", "qty": 1, "unit_amount": 1000},
-        {"sku": "SK-CABLE-USBC", "qty": 2, "unit_amount": 2000},
-    ]
+    payee = {**task["expect"]["payee"], "merchant_id": task["merchant"]}
+    line_items = task_line_items(task)
     total = sum(item["qty"] * item["unit_amount"] for item in line_items)
+    if total != task["expect"]["total_paise"]:
+        raise TaskTotalMismatch(
+            f"{task['task_id']}: line items sum to {total} but expect says "
+            f"{task['expect']['total_paise']}"
+        )
 
     cart = {
         "mandate_id": ids.cart_id(),
@@ -106,11 +144,15 @@ def build_mandates(user_key, agent_key) -> tuple[dict, dict]:
         "payee": payee,
         "line_items": line_items,
         "total_amount": total,
-        "currency": "INR",
+        "currency": scope["currency"],
         "cart_hash": cart_hash(line_items, total, payee),
         "instrument": {
             "token": "tok_scoped_01",
-            "max_amount": 50000,
+            # The instrument's own ceiling, which is not the mandate's. Set to
+            # the per-transaction cap so the two agree: an instrument bound
+            # below the cap would refuse purchases the intent permits, and the
+            # false-block rate would be measuring the fixture.
+            "max_amount": scope["per_txn_cap"],
             "expires_at": "2026-01-01T00:15:00Z",
         },
         "confirmed_by": "user",
@@ -399,17 +441,39 @@ def main() -> int:
 
     FIXTURES.mkdir(exist_ok=True)
     (FIXTURES / "mandates").mkdir(exist_ok=True)
+    (FIXTURES / "utterances").mkdir(exist_ok=True)
+    for stale in list((FIXTURES / "mandates").glob("*.json")) + list(
+        (FIXTURES / "utterances").glob("*.txt")
+    ):
+        stale.unlink()
 
     user_key, agent_key = write_keys()
-    intent, cart = build_mandates(user_key, agent_key)
+    clock = Clock()
+    ids = IdFactory(clock, RunRandom("fixture-seed-0"))
 
-    (FIXTURES / "mandates" / "intent_benign_01.json").write_text(
-        json.dumps(intent, indent=2) + "\n"
-    )
-    (FIXTURES / "mandates" / "cart_benign_01.json").write_text(
-        json.dumps(cart, indent=2) + "\n"
-    )
-    (FIXTURES / "utterance_benign_01.txt").write_text(UTTERANCE + "\n")
+    # One pair per *distinct pair of paths*, in task order. Two tasks that name
+    # the same files share one authority on purpose — benign-04 is benign-01's
+    # purchase followed by a refund, and a refund has to be judged against the
+    # mandate the purchase was made under or check 8 refuses it for the wrong
+    # reason.
+    first: dict[str, tuple[dict, dict]] = {}
+    for path in sorted(TASKS.glob("*.json")):
+        task = json.loads(path.read_text())
+        mandates = task.get("mandates")
+        if not mandates:
+            continue
+        key = mandates["intent"]
+        if key in first:
+            continue
+        intent, cart = build_task_mandates(task, user_key, agent_key, ids, clock)
+        first[key] = (intent, cart)
+        (REPO_ROOT / mandates["intent"]).write_text(json.dumps(intent, indent=2) + "\n")
+        (REPO_ROOT / mandates["cart"]).write_text(json.dumps(cart, indent=2) + "\n")
+        (FIXTURES / "utterances" / f"{task['task_id'].replace('-', '_')}.txt").write_text(
+            task["utterance"] + "\n"
+        )
+
+    intent, cart = first["fixtures/mandates/intent_benign_01.json"]
     write_cart_variants(cart)
     (FIXTURES / "chain.jsonl").write_text(build_chain(intent, cart))
 
