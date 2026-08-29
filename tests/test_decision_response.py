@@ -45,6 +45,7 @@ SPEC_AUDIT_ACTIONS = {
     "authorize.deny",
     "capture.allow",
     "capture.deny",
+    "authorize.replayed",
     "capture.replayed",
     "refund.allow",
     "refund.deny",
@@ -54,6 +55,7 @@ SPEC_AUDIT_ACTIONS = {
     "escalation.resolved",
     "webhook.ingested",
     "webhook.deduped",
+    "webhook.refused",
     "recovery.reconciled",
     "kernel.fail_closed",
 }

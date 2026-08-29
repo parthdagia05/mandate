@@ -28,7 +28,7 @@ from agent.planner import PlanResult, UndefendedAgent
 from agent.tools import KernelTools, UndefendedTools
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
-from harness.oracles import oracle_for
+from harness.oracles import LedgerView, oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
 from sim.faults import KernelCrashed
@@ -44,7 +44,12 @@ CONFIGS = ("undefended", "model-only", "kernel")
 #: How many one-second advances the settle loop will take before giving up.
 #: A webhook chain longer than this is a bug in the chain, and hanging is a
 #: worse way to find out about it than failing.
-MAX_SETTLE_ADVANCES = 60
+#:
+#: It has to clear ``RECOVERY_TTL_S`` with room to spare: a crashed run settles
+#: its webhooks in a couple of seconds and then waits out the TTL before the
+#: scan will touch the reservation. A bound below the TTL would make every
+#: crash test fail as "did not settle" instead of recovering.
+MAX_SETTLE_ADVANCES = 90
 
 
 @dataclass
@@ -63,12 +68,19 @@ class RunRecord:
     log_head: str
     log_entries: int
     plan: dict[str, Any]
+    #: Credits raised, kept apart from ``ledger`` because a refund is not a
+    #: debit and folding it in would make every A1 oracle count it.
+    refunds: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
     notes: list[str] = field(default_factory=list)
     #: Kernel arm only: every decision the kernel returned, in order, with its
     #: reason code and the checks that ran. A denial has to be visible *as a
     #: decision*; "no money moved" is also what a crashed agent looks like.
     decisions: list[dict[str, Any]] = field(default_factory=list)
+    #: Kernel arm only: every reservation the barrier's recovery scan
+    #: resolved. A crash that was repaired has to be visible *as a repair* —
+    #: a ledger that happens to look right is not evidence that recovery ran.
+    recoveries: list[dict[str, Any]] = field(default_factory=list)
     #: Kernel arm only: the audit chain this run produced.
     chain_head: str | None = None
     chain_entries: int = 0
@@ -83,21 +95,29 @@ class RunRecord:
 
 
 def _settle(plane: ControlPlane) -> int:
-    """Advance one second at a time until nothing is pending.
+    """Advance one second at a time until nothing is outstanding.
 
     One second at a time rather than one large jump, because a large jump would
     deliver two rounds of webhooks inside a single barrier and hide an ordering
     the schedule actually produces. The point of the barrier is that ordering is
     observable.
+
+    "Outstanding" is more than the webhook queue. A kernel run can have a quiet
+    world and an open reservation — the crash tests are exactly that — and
+    reporting the ledger there would report it mid-recovery. So the loop asks
+    :meth:`~sim.world.World.unsettled`, which the kernel arm answers for, and
+    keeps advancing until the reservation is resolved or the TTL has passed and
+    the scan has had its say.
     """
     world = plane.world
     for advanced in range(1, MAX_SETTLE_ADVANCES + 1):
         plane.clock_advance({"seconds": 1})
-        if not world.scheduler.pending():
+        if not world.unsettled():
             return advanced
     raise RuntimeError(
         f"the world did not settle in {MAX_SETTLE_ADVANCES} advances; "
-        f"{len(world.scheduler.pending())} webhooks still pending"
+        f"{len(world.scheduler.pending())} webhooks still pending and "
+        "the settle probes still report outstanding work"
     )
 
 
@@ -215,14 +235,17 @@ def run_case(
     # where money went, because a kernel that reported its own ledger would be
     # scoring its own exam.
     ledger = world.psp.ledger()
+    refunds = world.psp.refund_ledger()
 
     decisions: list[dict[str, Any]] = []
+    recoveries: list[dict[str, Any]] = []
     chain_head: str | None = None
     chain_entries = 0
     chain_path: str | None = None
     poisoned: str | None = None
     if arm is not None:
         decisions = list(getattr(tools, "decisions", []))
+        recoveries = list(arm.recoveries)
         poisoned = arm.verify()
         chain_path = str(arm.export(export_chain))
         chain_head, chain_entries = arm.head()
@@ -230,7 +253,9 @@ def run_case(
 
     attacker_win = False
     if case is not None:
-        attacker_win = oracle_for(case.oracle)(ledger, task.expect, case.raw)
+        attacker_win = oracle_for(case.oracle)(
+            LedgerView(captures=ledger, refunds=refunds), task.expect, case.raw
+        )
 
     if export_log is not None:
         Path(export_log).parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +272,16 @@ def run_case(
             "the audit chain did not verify; this run is discarded, not "
             f"reported ({poisoned})"
         )
+    unresolved = [r for r in recoveries if r.get("outcome") == "unresolved"]
+    if unresolved:
+        notes.append(
+            f"{len(unresolved)} reservation(s) the recovery scan could not "
+            "resolve; they are held, not skipped, and the chain names them"
+        )
+    if arm is not None and getattr(arm, "webhook_errors", None):
+        notes.append(
+            f"{len(arm.webhook_errors)} webhook(s) the kernel could not ingest"
+        )
 
     return RunRecord(
         run_id=sha256_of(
@@ -260,6 +295,7 @@ def run_case(
         attacker_win=attacker_win,
         task_success=_task_succeeded(task, plan, ledger),
         ledger=ledger,
+        refunds=refunds,
         log_head=world.log.head(),
         log_entries=len(world.log),
         plan={
@@ -274,6 +310,7 @@ def run_case(
         error=error,
         notes=notes,
         decisions=decisions,
+        recoveries=recoveries,
         chain_head=chain_head,
         chain_entries=chain_entries,
         chain_path=chain_path,

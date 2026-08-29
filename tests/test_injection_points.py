@@ -114,7 +114,8 @@ def test_an_unknown_merchant_is_refused_at_load(tmp_path, monkeypatch):
 
 
 def test_the_shipped_corpus_loads():
-    assert list_tasks() == ["benign-01", "benign-02", "benign-03"]
-    assert list_attacks() == ["A1-seed-1"]
+    assert list_tasks() == ["benign-01", "benign-02", "benign-03", "benign-04"]
+    assert list_attacks() == ["A1-seed-1", "A7-seed-1"]
+    assert load_attack("A7-seed-1").point is InjectionPoint.SUPPORT_FLOW
     assert load_attack("A1-seed-1").point is InjectionPoint.PRODUCT_DESCRIPTION
     assert load_task("benign-01").merchant == "shopkart"

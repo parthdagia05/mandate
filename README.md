@@ -12,7 +12,7 @@ actually said. The kernel is the contribution; the harness is the evidence.
 
 ## Status
 
-**M1, M2 and M3 are complete.**
+**M1, M2, M3 and M4 are complete.**
 
 M1 is the spine: schemas, canonicalisation, signing fixtures, the clock, the
 audit chain and the standalone verifier. Nothing in it moves money, and
@@ -33,8 +33,15 @@ same injection point, same planner taking the same five steps. That is what
 makes the difference between the two numbers attributable to the kernel rather
 than to an agent that was also quietly improved.
 
-M4 adds the payments half: refunds, webhook reconciliation and the recovery
-scan under real faults.
+M4 is the payments half, and it is what makes this a payments project rather
+than an LLM-security one. Two-phase idempotency with a real recovery scan,
+webhook ingestion with business-level dedup, refunds bound to the payment's
+recorded source, and the `F-01`…`F-10` failure suite. Class A6 — duplicate
+capture — is a reliability bug rather than a prompt injection, and it is the
+bridge between the two halves of the project: **a crash mid-capture and a
+duplicate webhook each leave exactly one debit.**
+
+M5 and M6 are next: the corpus, the oracles and the numbers.
 
 ## Setup
 
@@ -186,6 +193,87 @@ the chain cannot even record its own failure, that is reported as a gap with a
 best-effort sidecar line rather than hidden. A chain that does not verify
 poisons the kernel, which then denies everything until an operator clears it,
 and the run's results are discarded rather than reported.
+
+## Prove it — M4
+
+```sh
+export KERNEL_MODE=test
+
+# 1. The kernel dies after the rail answered and before the ledger heard.
+#    The clock runs past the recovery TTL, the scan polls the PSP by
+#    client_ref, and EXACTLY ONE DEBIT exists. The key reads terminal.
+mk run --task benign-01 --config kernel \
+       --fault crash_after_reserve:capture.after_psp_call
+
+# 2. The PSP redelivers `captured` with a FRESH event id. Still one debit;
+#    the chain shows webhook.deduped with two different event ids.
+mk run --task benign-01 --config kernel --fault duplicate_webhook
+
+# 3. `authorized` delivered after `captured`. Refused at the payment state
+#    machine and recorded as webhook.refused — not absorbed, not a dedup.
+mk run --task benign-01 --config kernel --fault reorder_webhook
+
+# 4. A support page supplies a refund destination and the agent asks for it.
+#    The credit goes back to the original payment source anyway.
+mk run --task benign-04 --attack A7-seed-1 --config kernel
+mk run --task benign-04 --attack A7-seed-1 --config undefended   # attacker@upi
+
+mk faults                        # everything armable, and the line that arms it
+
+pytest tests/test_m4_gate.py     # the four steps above
+pytest tests/test_failure_suite.py   # F-01 … F-10
+```
+
+## Four things about M4 worth stating plainly
+
+**Three states, because "reserved but outcome unknown" is a real position.** A
+two-state idempotency design has to pretend it is not. A crash between the PSP
+call and the commit leaves a row meaning "someone started this and we do not
+know how it ended", and the only correct thing to do with it is ask the PSP —
+never blindly retry, which double-charges, and never silently skip, which is
+how a debit ends up with nothing recording it. **Skipping is not a transition.**
+
+The two crash windows make that concrete. `capture.after_reserve` and
+`capture.after_psp_call` leave *identically shaped* reservations and resolve in
+opposite directions: the first has no debit behind it and the key is released,
+the second has one and the key is committed. Nothing about the row says which.
+The kernel asks the rail.
+
+**Dedup is on the business key, never on the event id.** A PSP resending with a
+fresh id is normal at-least-once behaviour, so the duplicate that matters
+arrives with an id nothing has ever seen. A dedup layer keyed on the id answers
+"have I seen this event?" when the question is "have I already acted on this
+outcome?" — and it answers it wrongly on exactly the delivery it exists to
+catch. The kernel dedups on its own payment row, reached through
+`(mandate_id, cart_hash)`.
+
+Out-of-order delivery is refused at the payment state machine rather than
+absorbed by the dedup layer, and recorded under its own name. Dedup means "I
+already have this outcome"; a webhook claiming `authorized` after `captured` is
+claiming something that cannot have happened next. Counting one as the other
+would leave the out-of-order case with no signature in the chain at all.
+
+**Checks 6 and 7 are not redundant.** Check 7 collapses *the same* action
+repeated — a retry, a redelivered webhook — into one debit. Check 6 refuses a
+*different* action beyond the signed count. A system with only idempotency lets
+an agent spend a mandate an unlimited number of times as long as each request
+differs; a system with only a budget double-charges on every network retry.
+
+**A refund has no destination field to attack.** `PaymentRequest` carries an
+amount and an `original_payment_id` and nothing else, so a support page that
+talks an agent into a refund destination has nowhere on the wire to put it —
+and the agent, in the kernel arm, still asks for `attacker@upi`. Check 8 fills
+the destination in from `payment.source_json`. That is class A7's answer, and
+it is structural rather than evaluative: there is no filter to misconfigure and
+no predicate to ablate, because there is no input.
+
+The simulated rail *does* credit a misdirected refund, deliberately. A rail
+that always credited the source would be doing check 8's job, which sounds safe
+and is not — A7 would become inexpressible, its oracle could never fire, and
+the results table would show a defence beating an attack the harness had
+quietly made unreachable. An oracle that cannot return `true` reads as a
+perfect defence, which is the same failure S-02 exists to prevent, seen from
+the other side.
 
 ## Two things about M2 worth stating plainly
 

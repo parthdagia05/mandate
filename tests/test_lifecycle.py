@@ -22,6 +22,7 @@ from __future__ import annotations
 import pytest
 
 from kernel.enums import ActionType
+from kernel.service import CRASH_AFTER_RESERVE
 from kernel.stores.idempotency import RECOVERY_TTL_S, idempotency_key
 from sim.faults import Fault, KernelCrashed
 from tests.kernel_bench import Bench
@@ -54,15 +55,15 @@ def test_the_decision_is_recorded_before_the_rail_is_called(bench: Bench):
 
 
 def test_a_crash_between_reserve_and_call_leaves_a_reservation_and_no_debit(tmp_path):
-    """The repairable half of the pair."""
-    world_faults = {"armed": True}
+    """The repairable half of the pair, in the first of the two crash windows."""
+    fired = {"once": False}
 
-    def crash():
-        if world_faults["armed"]:
-            world_faults["armed"] = False
+    def crash(site, action):
+        if site == CRASH_AFTER_RESERVE and not fired["once"]:
+            fired["once"] = True
             raise KernelCrashed(Fault.CRASH_AFTER_RESERVE.value)  # type: ignore[arg-type]
 
-    bench = Bench(tmp_path=tmp_path, after_reserve=crash)
+    bench = Bench(tmp_path=tmp_path, crash=crash)
     try:
         bench.register()
         with pytest.raises(KernelCrashed):
@@ -142,7 +143,14 @@ def test_a_key_held_inside_the_ttl_answers_202_and_not_a_decision(bench: Bench):
     key = idempotency_key(
         bench.intent["mandate_id"], bench.confirmed_cart["cart_hash"], "authorize"
     )
-    bench.service.idempotency.reserve(key, ActionType.AUTHORIZE)
+    bench.service.idempotency.reserve(
+        key,
+        ActionType.AUTHORIZE,
+        mandate_id=bench.intent["mandate_id"],
+        cart_hash=bench.confirmed_cart["cart_hash"],
+        amount_paise=bench.confirmed_cart["total_amount"],
+        client_ref="ref_bench",
+    )
 
     out = bench.authorize()
     assert out.status == 202
@@ -158,7 +166,14 @@ def test_past_the_ttl_the_kernel_polls_the_psp_rather_than_retrying(bench: Bench
     key = idempotency_key(
         bench.intent["mandate_id"], bench.confirmed_cart["cart_hash"], "authorize"
     )
-    bench.service.idempotency.reserve(key, ActionType.AUTHORIZE)
+    bench.service.idempotency.reserve(
+        key,
+        ActionType.AUTHORIZE,
+        mandate_id=bench.intent["mandate_id"],
+        cart_hash=bench.confirmed_cart["cart_hash"],
+        amount_paise=bench.confirmed_cart["total_amount"],
+        client_ref="ref_bench",
+    )
     bench.world.clock.advance(RECOVERY_TTL_S + 1)
 
     out = bench.authorize()
@@ -167,6 +182,7 @@ def test_past_the_ttl_the_kernel_polls_the_psp_rather_than_retrying(bench: Bench
 
     reconciled = entries(bench, "recovery.reconciled")
     assert reconciled and reconciled[-1].payload["polled_by"] == "client_ref"
+    assert reconciled[-1].payload["outcome"] == "released"
     assert reconciled[-1].payload["found"] is False
     # The reservation was released because the poll proved nothing happened,
     # so the next attempt is allowed to proceed.

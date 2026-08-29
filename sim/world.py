@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Callable
 
 from kernel.clock import DEFAULT_EPOCH, Clock
 from kernel.rng import RunRandom
@@ -46,8 +47,36 @@ class World:
     psp: SimPSP = field(init=False)
     merchant: Merchant = field(init=False)
 
+    #: Run at every barrier, after the webhooks due there have been delivered.
+    #: SPEC.md §15: "advance delivers every webhook now due, runs any recovery
+    #: scan now due, and only then returns." The kernel's scan registers here,
+    #: which is how a recovery happens at a point the seed and the schedule fix
+    #: rather than at whatever moment a timer fired.
+    _after_advance: list[Callable[[], Any]] = field(default_factory=list, init=False)
+    #: "Is there still work outstanding?" — asked by the harness's settle loop.
+    #: The scheduler's queue is not the whole answer in a kernel run: a world
+    #: with no webhooks left can still hold a reservation whose TTL has not
+    #: elapsed, and stopping there would report a ledger mid-recovery.
+    _settle_probes: list[Callable[[], bool]] = field(default_factory=list, init=False)
+
     def __post_init__(self) -> None:
         self._build()
+        self._after_advance = []
+        self._settle_probes = []
+
+    # -- subscribers ------------------------------------------------------
+
+    def after_advance(self, hook: Callable[[], Any]) -> None:
+        """Run ``hook`` at the end of every barrier, after webhook delivery."""
+        self._after_advance.append(hook)
+
+    def settle_probe(self, probe: Callable[[], bool]) -> None:
+        """Register "there is still outstanding work" for the settle loop."""
+        self._settle_probes.append(probe)
+
+    def unsettled(self) -> bool:
+        """Whether anything — a webhook or a probe — still has work to do."""
+        return bool(self.scheduler.pending()) or any(p() for p in self._settle_probes)
 
     def _build(self) -> None:
         self.clock = Clock(self.epoch)
@@ -80,9 +109,10 @@ class World:
         Nothing in this project is on a timer; if it were, two runs of the same
         seed would differ by whatever the OS scheduler felt like.
 
-        Recovery scans hook in here in M4. The barrier's contract — settle
-        everything, then return — is fixed now so that adding them is not a
-        change to the determinism argument.
+        Recovery scans run here, after delivery, through :meth:`after_advance`.
+        After rather than before, because a webhook that arrives at this barrier
+        may be exactly what makes a reservation resolvable — scanning first
+        would poll the rail one barrier before it had the answer.
         """
         self.clock.advance(seconds)
         self.log.append(
@@ -91,11 +121,13 @@ class World:
             {"by_s": seconds, "now": self.clock.now_rfc3339()},
         )
         delivered = self.scheduler.drain_due()
+        recovered = [hook() for hook in self._after_advance]
         return {
             "now": self.clock.now_rfc3339(),
             "delivered": [
                 {"event_id": e.event_id, "kind": e.kind} for e in delivered
             ],
+            "recovery": [r for r in recovered if r],
             "log_head": self.log.head(),
         }
 
@@ -126,4 +158,9 @@ class World:
         if seed is not None:
             self.seed = seed
         self._build()
+        # Subscribers are dropped with the world they were watching. A hook
+        # left pointing at the previous scheduler would fire against stores
+        # that no longer belong to this run.
+        self._after_advance = []
+        self._settle_probes = []
         return {"seed": self.seed, "now": self.clock.now_rfc3339()}

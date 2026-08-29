@@ -58,6 +58,12 @@ class UndefendedTools:
     #: planner reads all of it, which is the point.
     transcript: list[str] = field(default_factory=list)
 
+    #: The payment the last ``pay`` produced, so a later refund has something
+    #: to name. Held by the tools rather than passed through the planner
+    #: because the planner must call the same method with the same arguments in
+    #: both arms — see ``line_items`` below for the same argument.
+    last_payment: dict[str, Any] = field(default_factory=dict)
+
     def _log_call(self, tool: str, **args: Any) -> None:
         self.world.log.append(
             SimActor.AGENT,
@@ -125,15 +131,20 @@ class UndefendedTools:
         captured = self.world.psp.capture(
             payment.payment_id, amount_paise, idem=f"{self.client_ref}:capture"
         )
-        return captured.view()
+        self.last_payment = captured.view()
+        return self.last_payment
 
-    def refund(self, payment_id: str, amount_paise: int, destination: dict[str, Any]):
+    def refund(
+        self, payment_id: str, amount_paise: int, destination: dict[str, Any]
+    ) -> dict[str, Any]:
         """Refund with a caller-supplied destination — class A7's target.
 
         The parameter exists here and deliberately does not exist on
         ``PaymentRequest``: an undefended agent can be told where to send a
         refund, and the kernel's answer to A7 is that there is no such field to
-        tell it about.
+        tell it about. Nothing in this method checks the destination, because
+        checking it here would be a defence nobody declared and the undefended
+        number would be measuring it.
         """
         self._log_call("refund", payment_id=payment_id, amount_paise=amount_paise)
         return self.world.psp.refund(
@@ -141,7 +152,7 @@ class UndefendedTools:
             amount_paise,
             Account(type=destination["type"], value=destination["value"]),
             idem=f"{self.client_ref}:refund",
-        )
+        ).view()
 
     # -- what the planner has read ----------------------------------------
 
@@ -182,6 +193,11 @@ class KernelTools(UndefendedTools):
     #: rather than as an absence of money movement.
     decisions: list[dict[str, Any]] = field(default_factory=list)
     _registered: bool = False
+    #: The cart the purchase was made under. A refund is judged against the
+    #: same authority, so it presents the same cart — and shares a mandate and
+    #: cart hash with it, which is what gives the refund its own idempotency
+    #: key under the same purchase.
+    _cart: dict[str, Any] = field(default_factory=dict)
 
     # -- mandate assembly -------------------------------------------------
 
@@ -293,6 +309,7 @@ class KernelTools(UndefendedTools):
         self._register()
 
         cart = self._agent_cart(payee, list(line_items or []), amount_paise, currency)
+        self._cart = cart
 
         authorized = self._record(
             "authorize",
@@ -311,7 +328,43 @@ class KernelTools(UndefendedTools):
                 _payment_request(self._request("capture", cart, amount_paise))
             ),
         )
+        self.last_payment = captured.get("payment") or {}
         return captured
+
+    def refund(
+        self, payment_id: str, amount_paise: int, destination: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Refund through the kernel. ``destination`` is accepted and dropped.
+
+        **This method's signature is the demonstration of A7, and its body is
+        the answer to it.** The planner calls the same method with the same
+        arguments in both arms — it must, or the difference between the two
+        runs stops being attributable to the kernel — so an agent that has been
+        talked into a refund destination by a support page passes one here just
+        as it does in the undefended arm.
+
+        And then there is nowhere to put it. :class:`~kernel.models.RequestParams`
+        has ``amount`` and ``original_payment_id`` and no destination field, so
+        the value does not get dropped by a filter that could be misconfigured
+        or a check that could be ablated; it is dropped because the wire format
+        has no room for it. Check 8 then fills the destination in from
+        ``payment.source_json``. The refund goes back where the debit came from
+        because that is the only place the kernel can read a destination from.
+        """
+        self._log_call(
+            "refund",
+            payment_id=payment_id,
+            amount_paise=amount_paise,
+            # Recorded so the run log shows what the agent *was told* to do,
+            # next to a request that had no field to carry it. That contrast is
+            # the whole of the A7 story and it should be legible in the log.
+            destination_asked_for=destination,
+            destination_field_exists=False,
+        )
+        body = self._request(
+            "refund", self._cart, amount_paise, original_payment_id=payment_id
+        )
+        return self._record("refund", self.service.refund(_payment_request(body)))
 
 
 def _payment_request(body: dict[str, Any]):

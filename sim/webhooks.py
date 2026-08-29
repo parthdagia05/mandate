@@ -60,6 +60,10 @@ class WebhookScheduler:
         Hold the next event back one second so a later one overtakes it —
         ``authorized`` arriving after ``captured``. The state machine refuses
         it; nothing here decides that.
+
+    Delivery fans out to every subscriber for a kind, in registration order.
+    That is what lets the kernel ingest the same callback the PSP just applied,
+    without the scheduler knowing there is a kernel.
     """
 
     def __init__(
@@ -75,13 +79,20 @@ class WebhookScheduler:
         self._faults = faults or FaultInjector()
         self._queue: list[WebhookEvent] = []
         self._sequence = 0
-        self._handlers: dict[str, Callable[[WebhookEvent], None]] = {}
+        #: kind -> handlers, in registration order. A *list*, because in a
+        #: kernel run two parties want the same callback: the PSP, which owns
+        #: the payment's state, and the kernel, which reconciles its ledger
+        #: against it. Registration order is delivery order and the PSP
+        #: registers first, so the kernel always sees a payment the rail has
+        #: already moved rather than one it is about to.
+        self._handlers: dict[str, list[Callable[[WebhookEvent], None]]] = {}
         self._delivered: list[WebhookEvent] = []
 
     # -- wiring -----------------------------------------------------------
 
     def on(self, kind: str, handler: Callable[[WebhookEvent], None]) -> None:
-        self._handlers[kind] = handler
+        """Subscribe to one webhook kind. Subscribers are additive."""
+        self._handlers.setdefault(kind, []).append(handler)
 
     @property
     def delivered(self) -> list[WebhookEvent]:
@@ -199,8 +210,7 @@ class WebhookScheduler:
                     "payload": event.payload,
                 },
             )
-            handler = self._handlers.get(event.kind)
-            if handler is not None:
+            for handler in self._handlers.get(event.kind, ()):
                 handler(event)
             self._delivered.append(event)
             delivered.append(event)
