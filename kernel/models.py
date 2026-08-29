@@ -248,12 +248,28 @@ class SpendLedger(StrictModel):
 
 
 class IdempotencyRecord(StrictModel):
+    """One reservation, and everything recovery needs to resolve it alone.
+
+    The last five fields are the recovery context. A scan runs with no request
+    — the process that held it died — and the key is a hash, so nothing about
+    the action can be recovered from the key itself. What was not written down
+    at reserve time is not available at recovery time.
+    """
+
     key: Sha256
     action: ActionTypeField
     state: IdempotencyStateField
     result_json: str | None = None
     reserved_at: Rfc3339
     committed_at: Rfc3339 | None = None
+    mandate_id: IntentId
+    cart_hash: Sha256
+    amount_paise: Paise
+    #: What the recovery scan polls the PSP by. After a crash it is the only
+    #: identifier the kernel is certain it had.
+    client_ref: Token
+    #: Refunds only: the payment being reversed.
+    payment_id: PaymentId | None = None
 
 
 class AuditEntry(StrictModel):

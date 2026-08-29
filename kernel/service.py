@@ -38,6 +38,45 @@ can diverge, the ledger is fiction.
 cannot record, a chain that does not verify — all of them 503 and none of them
 reach the rail. Availability is traded for integrity on purpose: the kernel
 being down is a utility loss, and the README says so.
+
+Three paths can be the first to learn that a debit happened, and they all have
+to agree
+--------------------------------------------------------------------------
+
+The lifecycle above is the ordinary one. Two others exist because it can be
+cut short, and between them they are the whole of class A6:
+
+:meth:`~KernelService.ingest_webhook`
+    A PSP callback. Dedup is at the business level, on the kernel's own payment
+    row, never on the event id — a redelivery arrives with a *fresh* id, so an
+    id-keyed dedup answers wrongly on exactly the delivery it exists to catch.
+    A claim earlier than what the kernel holds is refused at the payment state
+    machine rather than absorbed by the dedup layer.
+:meth:`~KernelService.recovery_scan`
+    A reservation whose owner never came back. Past the TTL it moves to
+    ``recovering``, polls the rail by ``client_ref``, and commits the true
+    outcome. Never blindly retried, which double-charges; never silently
+    skipped, which strands a debit. **Skipping is not a transition.**
+
+Booking a capture is therefore **idempotent**, and :meth:`_capture_delta` is
+the single question all three ask. Without that, a crash whose webhook landed
+before the scan would count the same rupees twice — and the ledger's own CHECK
+constraint would refuse it, turning a repaired crash into a failed recovery.
+
+The two crash windows, which resolve in opposite directions
+-----------------------------------------------------------
+
+``after_reserve``
+    Reserved and recorded, rail untouched. The poll finds nothing and the key
+    is released. Zero debits.
+``after_psp_call``
+    The debit exists and the ledger does not know. The poll finds it and the
+    scan commits it. Exactly one debit.
+
+The reservation looks identical in both. Only the rail can say which happened,
+which is why the scan asks rather than assumes — and why the recovery context
+is written down at reserve time, since after a crash there is no request left
+to read it from and the key is a hash.
 """
 
 from __future__ import annotations
@@ -71,7 +110,8 @@ from kernel.enums import (
     ReasonCode,
 )
 from kernel.latency import Stopwatch
-from kernel.models import PaymentRequest
+from kernel.models import IdempotencyRecord, PaymentRequest
+from kernel.payments import is_forward_payment, is_settled
 from kernel.stores.base import StoreGuard, no_guard
 from kernel.stores.db import StoreUnavailable
 from kernel.stores.idempotency import (
@@ -82,7 +122,23 @@ from kernel.stores.idempotency import (
 from kernel.stores.ledger import AlreadyRegistered, LedgerStore
 from kernel.stores.nonces import NonceAlreadyUsed, NonceStore
 
-__all__ = ["Outcome", "KernelService", "AUDIT_ACTION"]
+__all__ = [
+    "Outcome",
+    "Resolution",
+    "KernelService",
+    "AUDIT_ACTION",
+    "REPLAY_ACTION",
+    "CRASH_AFTER_RESERVE",
+    "CRASH_AFTER_PSP_CALL",
+]
+
+#: The two named windows a crash can open, and the only two the kernel offers.
+#: They are named rather than "somewhere in capture" so a failure test can
+#: assert *which* window it opened: the first leaves a reservation with no
+#: debit behind it, the second leaves a debit with no ledger entry, and those
+#: are resolved in opposite directions.
+CRASH_AFTER_RESERVE = "after_reserve"
+CRASH_AFTER_PSP_CALL = "after_psp_call"
 
 #: Which audit action each ``(action, decision)`` pair records. A table rather
 #: than string building, because the action enum is closed and a name that can
@@ -99,6 +155,42 @@ AUDIT_ACTION: dict[tuple[ActionType, bool], AuditAction] = {
     # branch with nowhere to write would be a lie in the enum.
     (ActionType.MANDATE_CREATE, False): AuditAction.MANDATE_CREATE_DENY,
 }
+
+#: Which audit action a *replay* records, by action. A table for the same
+#: reason as the one above, and a table with a hole in it on purpose:
+#: ``mandate.create`` never reserves a key, so it can never reach a replay, and
+#: an entry here would be a name for something that cannot happen. A KeyError
+#: is the right failure if that ever stops being true.
+REPLAY_ACTION: dict[ActionType, AuditAction] = {
+    ActionType.AUTHORIZE: AuditAction.AUTHORIZE_REPLAYED,
+    ActionType.CAPTURE: AuditAction.CAPTURE_REPLAYED,
+    ActionType.REFUND: AuditAction.REFUND_REPLAYED,
+}
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """What the PSP said about a reservation whose owner never came back.
+
+    Three outcomes, and the third one is the honest one rather than the tidy
+    one:
+
+    ``settled``
+        The rail did the thing. Commit it — the ledger has been behind the
+        truth since the crash and this is what catches it up.
+    ``released``
+        The rail never did it. Drop the reservation so a later attempt may
+        proceed. Only ever reached when the PSP is positive nothing happened.
+    ``unresolved``
+        The PSP could not be asked, or its answer does not settle the question.
+        The row stays where it is and the next scan asks again. **Skipping is
+        never a transition**, and a row quietly dropped here is a debit nothing
+        is looking for any more.
+    """
+
+    outcome: str
+    detail: str
+    payment: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -135,7 +227,7 @@ class KernelService:
         client_ref: str = "ref_kernel",
         instrument_token: str = "tok_scoped_01",
         guard: StoreGuard = no_guard,
-        after_reserve: Callable[[], None] | None = None,
+        crash: Callable[[str, str], None] | None = None,
         sidecar_path: Path | None = None,
     ) -> None:
         self._conn = conn
@@ -153,10 +245,12 @@ class KernelService:
         self.nonces = NonceStore(conn, clock, guard)
         self.idempotency = IdempotencyStore(conn, clock, guard)
 
-        #: The named site SPEC.md §09's ``crash_after_reserve`` fires at. A
-        #: callable rather than a flag so the kernel neither knows nor can find
-        #: out that a simulator is behind it.
-        self._after_reserve = after_reserve or (lambda: None)
+        #: The two named sites SPEC.md §09's ``crash_after_reserve`` can fire
+        #: at, as one callable taking ``(site, action)``. A callable rather than
+        #: a flag so the kernel neither knows nor can find out that a simulator
+        #: is behind it — and one callable rather than two hooks so the set of
+        #: windows the kernel admits to having is a single list.
+        self._crash_hook = crash or (lambda _site, _action: None)
         self._sidecar_path = sidecar_path
 
         #: Set once a chain break is detected, and never cleared by the kernel
@@ -328,56 +422,140 @@ class KernelService:
     def mandate_create(self, request: PaymentRequest) -> Outcome:
         return self._money_action(request, ActionType.MANDATE_CREATE)
 
+    #: Which audit action each ingest outcome records. Three names because
+    #: there are three different things that can have happened, and one of them
+    #: is a finding.
+    WEBHOOK_ACTION: dict[str, AuditAction] = {
+        "ingested": AuditAction.WEBHOOK_INGESTED,
+        "deduped": AuditAction.WEBHOOK_DEDUPED,
+        "refused": AuditAction.WEBHOOK_REFUSED,
+    }
+
     def ingest_webhook(self, body: WebhookIngest) -> Outcome:
         """Reconcile a PSP callback against the kernel's own payment row.
 
-        Dedup is on ``(mandate_id, cart_hash)`` — the kernel's business key —
-        not on the webhook's ``event_id``. A PSP redelivering with a fresh id is
-        ordinary at-least-once behaviour, and a dedup layer keyed on the id
-        answers "have I seen this event?" when the question is "have I already
-        acted on this outcome?".
+        **Dedup is at the business level**, on the kernel's own record of the
+        payment — reached through ``(mandate_id, cart_hash)``, the unique index
+        on the payment table — and never on the webhook's ``event_id``. A PSP
+        redelivering with a fresh id is ordinary at-least-once behaviour, and a
+        dedup layer keyed on the id answers "have I seen this event?" when the
+        question is "have I already acted on this outcome?". The duplicate
+        arrives with a *new* id precisely so that the wrong answer is available.
+
+        **Three outcomes, and the middle one is not the last one.**
+
+        ``ingested``
+            The claim is later in the payment's forward order than what the
+            kernel holds. This is news, and the ledger is reconciled against it.
+        ``deduped``
+            The claim is what the kernel already holds. Nothing moves, and the
+            chain says so under its own name so a redelivery is countable.
+        ``refused``
+            The claim is *earlier* — ``authorized`` arriving after ``captured``.
+            Refused at the payment state machine, which answers "can that have
+            happened next?", a question no event id can lie about. This is not a
+            duplicate and is not recorded as one: absorbing it into the dedup
+            count would hide F-08 entirely.
         """
         if self.poisoned is not None:
             return Outcome(503, {"error": "kernel poisoned", "detail": self.poisoned})
+
         try:
             payment = self.ledger.get_payment(body.payment_id)
             if payment is None:
+                # Not an error and not a finding: the kernel is told about
+                # payments it did not open (another tenant, another run). It
+                # declines to invent a row for one.
+                return Outcome(
+                    200, {"ingested": False, "reason": "no payment with that id"}
+                )
+
+            current = PaymentState(payment["state"])
+            claimed = PaymentState(body.state)
+            if claimed is current:
+                outcome = "deduped"
+            elif is_forward_payment(current, claimed):
+                outcome = "ingested"
+            else:
+                outcome = "refused"
+
+            payload: dict[str, Any] = {
+                "event": body.event,
+                "event_id": body.event_id,
+                "mandate_id": payment["mandate_id"],
+                "cart_hash": payment["cart_hash"],
+                "payment_id": body.payment_id,
+                "current_state": str(current),
+                "claimed_state": str(claimed),
+                "amount_paise": body.amount_paise,
+                "outcome": outcome,
+                # Kept for readers of older chains, and true either way.
+                "deduped": outcome == "deduped",
+            }
+            if outcome == "refused":
+                payload["refused_by"] = "payment_state_machine"
+
+            if outcome != "ingested":
+                entry = self.chain.append(
+                    AuditActor.PSP, self.WEBHOOK_ACTION[outcome], payload
+                )
                 return Outcome(
                     200,
-                    {"ingested": False, "reason": "no payment with that id"},
+                    {
+                        "ingested": False,
+                        "deduped": outcome == "deduped",
+                        "refused": outcome == "refused",
+                        "audit_seq": entry.seq,
+                    },
                 )
-            already = payment["state"] == str(body.state)
-            action = (
-                AuditAction.WEBHOOK_DEDUPED if already else AuditAction.WEBHOOK_INGESTED
-            )
-            if not already:
-                self._conn.execute("BEGIN IMMEDIATE")
-                try:
-                    self.ledger.set_payment_state(body.payment_id, str(body.state))
-                    self._conn.execute("COMMIT")
-                except Exception:
-                    self._conn.execute("ROLLBACK")
-                    raise
-            entry = self.chain.append(
-                AuditActor.PSP,
-                action,
-                {
-                    "event": body.event,
-                    "event_id": body.event_id,
-                    "mandate_id": payment["mandate_id"],
-                    "cart_hash": payment["cart_hash"],
-                    "payment_id": body.payment_id,
-                    "state": str(body.state),
-                    "amount_paise": body.amount_paise,
-                    "deduped": already,
-                },
-            )
+
+            booked = self._ledger_delta_for(payment, claimed)
+            payload["ledger_reconciled"] = booked
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                self.ledger.set_payment_state(body.payment_id, str(claimed))
+                if booked["applied"]:
+                    self.ledger.apply_capture(
+                        payment["mandate_id"],
+                        booked["amount_paise"],
+                        self._scope_for(payment["mandate_id"]),
+                    )
+                payload["ledger"] = self._ledger_snapshot(payment["mandate_id"])
+                entry = self.chain.append_within(
+                    AuditActor.PSP, AuditAction.WEBHOOK_INGESTED, payload
+                )
+                self._conn.execute("COMMIT")
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
         except StoreUnavailable as exc:
             return Outcome(503, {"error": "store unavailable", "detail": str(exc)})
+
         return Outcome(
             200,
-            {"ingested": not already, "deduped": already, "audit_seq": entry.seq},
+            {
+                "ingested": True,
+                "deduped": False,
+                "refused": False,
+                "reconciled": payload["ledger_reconciled"]["applied"],
+                "audit_seq": entry.seq,
+            },
         )
+
+    def _ledger_delta_for(
+        self, payment: dict[str, Any], claimed: PaymentState
+    ) -> dict[str, Any]:
+        """Whether this callback is the first the ledger hears of a debit.
+
+        The case this exists for is a capture the kernel never got to record —
+        it crashed, or the response never came back — where the webhook is the
+        first thing that tells the ledger a debit happened. Everything else is
+        confirmation, and :meth:`_capture_delta` is the shared judgement of
+        which is which.
+        """
+        if claimed is not PaymentState.CAPTURED:
+            return {"applied": False, "why": "not a settlement", "amount_paise": 0}
+        return self._capture_delta(payment["payment_id"], payment["amount_paise"])
 
     # -- the lifecycle ----------------------------------------------------
 
@@ -419,14 +597,23 @@ class KernelService:
 
             # -- 3. run the checks, in order, first failure short-circuits
             results = run_checks(ctx, CHECKS_FOR_ACTION[action])
-            payment_row = None
             if results[-1].passed and action == ActionType.REFUND:
-                payment_row = (
-                    self.ledger.get_payment(request.params.original_payment_id)
-                    if request.params.original_payment_id
-                    else None
+                original = request.params.original_payment_id
+                payment_row = self.ledger.get_payment(original) if original else None
+                results.append(
+                    refund_binding(
+                        ctx,
+                        payment_row,
+                        # Read here rather than in the check: a check may not
+                        # touch a store, so REQ-5's "every store failure denies"
+                        # stays one branch instead of nine.
+                        already_refunded=(
+                            self.ledger.refunded_for_payment(original)
+                            if original
+                            else 0
+                        ),
+                    )
                 )
-                results.append(refund_binding(ctx, payment_row))
         except StoreUnavailable as exc:
             return self._fail_closed(request, exc, watch)
 
@@ -458,7 +645,17 @@ class KernelService:
 
         # -- 5. reserve the idempotency key -------------------------------
         try:
-            reservation = self.idempotency.reserve(key, action)
+            reservation = self.idempotency.reserve(
+                key,
+                action,
+                # The recovery context, written now because after a crash there
+                # is no request left to read it from and the key is a hash.
+                mandate_id=request.intent.mandate_id,
+                cart_hash=request.cart.cart_hash,
+                amount_paise=request.params.amount,
+                client_ref=self._client_ref,
+                payment_id=request.params.original_payment_id,
+            )
         except StoreUnavailable as exc:
             return self._fail_closed(request, exc, watch)
 
@@ -492,7 +689,9 @@ class KernelService:
             self.idempotency.release(key)
             return self._audit_unwritable(request, exc, watch)
 
-        self._after_reserve()
+        # The first crash window: reserved and recorded, but the rail has not
+        # been touched. Recovery finds no payment and releases the key.
+        self._crash_hook(CRASH_AFTER_RESERVE, str(action))
 
         # -- 7. the only place money moves --------------------------------
         try:
@@ -530,6 +729,12 @@ class KernelService:
                 },
             )
 
+        # The second crash window, and the one recovery exists for: the debit
+        # has happened and the ledger does not know. This is SPEC.md §06's
+        # "crash mid-capture" row — payment ``captured`` at the PSP only, key
+        # still ``in_flight`` — and the scan is what closes it.
+        self._crash_hook(CRASH_AFTER_PSP_CALL, str(action))
+
         # -- 8. one transaction: idempotency, ledger, settle-leg audit ----
         results.append(CheckResult.ok(9, appended_seq=entry.seq))
         response = self._response(
@@ -538,7 +743,15 @@ class KernelService:
         )
         self._conn.execute("BEGIN IMMEDIATE")
         try:
-            self._apply_settlement(request, action, settled)
+            self._apply_settlement(
+                action,
+                mandate_id=request.intent.mandate_id,
+                cart_hash=request.cart.cart_hash,
+                amount=request.params.amount,
+                currency=request.cart.currency,
+                key=key,
+                settled=settled,
+            )
             self.idempotency.commit(key, jcs(response.to_json_dict()))
             self.chain.append_within(
                 AuditActor.KERNEL,
@@ -632,37 +845,130 @@ class KernelService:
                 "payment_id": refund.payment_id,
                 "amount_paise": refund.amount_paise,
                 "destination": recorded["source"],
+                "kind": str(refund.kind),
+                # Very often ``processing``. That is UPI's deemed-success
+                # position — debited, credit unconfirmed — and the kernel
+                # records the wait rather than resolving it.
                 "state": str(refund.state),
             }
 
         raise StoreUnavailable(f"no PSP call for action {action}")
 
     def _apply_settlement(
-        self, request: PaymentRequest, action: ActionType, settled: dict[str, Any]
+        self,
+        action: ActionType,
+        *,
+        mandate_id: str,
+        cart_hash: str,
+        amount: int,
+        currency: str,
+        key: str,
+        settled: dict[str, Any],
     ) -> None:
-        """The ledger half of step 8. Runs inside the caller's transaction."""
-        mandate_id = request.intent.mandate_id
-        amount = request.params.amount
+        """The ledger half of step 8. Runs inside the caller's transaction.
 
+        Takes values rather than a :class:`~kernel.models.PaymentRequest`
+        because **the recovery scan calls it with no request in hand** — the
+        process that held the request died, which is why there is a scan at
+        all. One implementation for both paths, so a recovered capture and a
+        live one cannot move the ledger differently.
+        """
         if action == ActionType.AUTHORIZE:
             self.ledger.apply_authorize(mandate_id, amount)
             self.ledger.record_payment(
                 payment_id=settled["payment_id"],
                 mandate_id=mandate_id,
-                cart_hash=request.cart.cart_hash,
+                cart_hash=cart_hash,
                 source=settled["source"],
                 amount_paise=amount,
-                currency=request.cart.currency,
+                currency=currency,
                 state=settled["state"],
                 client_ref=settled["client_ref"],
             )
         elif action == ActionType.CAPTURE:
-            self.ledger.apply_capture(
-                mandate_id, amount, request.intent.scope.canonical_dict()
+            # **Booking a capture is idempotent, and it has to be.** Three
+            # different things can be the first to learn that a debit happened:
+            # the capture response, the ``payment.captured`` webhook, and the
+            # recovery scan's poll. In an ordinary run only the first of them
+            # arrives before the ledger moves; after a crash any of the three
+            # can. If each booked unconditionally, a crash whose webhook landed
+            # before the scan would count the same rupees twice — and the
+            # ledger's own CHECK constraint would refuse it, turning a repaired
+            # crash into a failed recovery. So all three ask the same question
+            # of the same marker.
+            booked = self._capture_delta(settled["payment_id"], amount)
+            if booked["applied"]:
+                self.ledger.apply_capture(
+                    mandate_id, booked["amount_paise"], self._scope_for(mandate_id)
+                )
+            self.ledger.set_payment_state(
+                settled["payment_id"], str(PaymentState.CAPTURED)
             )
-            self.ledger.set_payment_state(settled["payment_id"], str(PaymentState.CAPTURED))
         elif action == ActionType.REFUND:
             self.ledger.apply_refund(mandate_id, amount)
+            # The refund row, with the destination check 8 chose. Written here
+            # rather than left to the PSP call because the row is the kernel's
+            # own account of where the money went: a destination that lived
+            # only inside an adapter call is one nobody local can be held to.
+            self.ledger.record_refund(
+                refund_id=settled["refund_id"],
+                payment_id=settled["payment_id"],
+                amount_paise=amount,
+                destination=settled["destination"],
+                kind=settled["kind"],
+                state=settled["state"],
+                idempotency_key=key,
+            )
+
+    def _capture_delta(self, payment_id: str, amount: int) -> dict[str, Any]:
+        """Is this debit already on the ledger, or is this the first news of it?
+
+        The kernel's own payment row is the marker, and that is not an
+        accident: the capture request moves the row and the ledger inside one
+        transaction, so a row that already reads ``captured`` is a row whose
+        money has been booked. Anything arriving later about it — a webhook, a
+        recovery poll — is confirmation rather than news.
+
+        This is what makes P-06 hold. The captured total is a function of the
+        payment's state and not of how many callbacks arrived, in what order,
+        or whether a scan got there first.
+        """
+        payment = self.ledger.get_payment(payment_id)
+        if payment is None:
+            # Nothing recorded, so nothing to compare against. Refusing to book
+            # is the safe direction: an unbooked debit is visible as a
+            # reconciliation gap, and a double-booked one is a wrong number.
+            return {
+                "applied": False,
+                "why": "no recorded payment with that id",
+                "amount_paise": 0,
+            }
+        if is_settled(PaymentState(payment["state"])):
+            return {
+                "applied": False,
+                "why": "this debit is already on the ledger",
+                "amount_paise": 0,
+            }
+        return {
+            "applied": True,
+            "why": "the ledger had not recorded this capture",
+            "amount_paise": amount,
+        }
+
+    def _scope_for(self, mandate_id: str) -> dict[str, Any]:
+        """The scope from the ledger's *stored* intent, not from the request.
+
+        Exhaustion is judged against the authority the kernel registered, which
+        is the one whose bytes it kept. Reading the scope off the presented
+        request would let a re-signed intent widen the ceiling it is about to
+        be measured against — and the recovery scan has no request to read
+        anyway, so this is also the only version of the question both callers
+        can ask.
+        """
+        row = self.ledger.get(mandate_id)
+        if row is None:  # pragma: no cover - check 6 refused long before here
+            raise StoreUnavailable(f"no ledger row for {mandate_id}")
+        return json.loads(row.intent_json)["scope"]
 
     # -- responses --------------------------------------------------------
 
@@ -821,9 +1127,7 @@ class KernelService:
         stored["latency_us"] = watch.micros()
         self.chain.append(
             AuditActor.KERNEL,
-            AuditAction.CAPTURE_REPLAYED
-            if request.action == ActionType.CAPTURE
-            else AuditAction.REFUND_REPLAYED,
+            REPLAY_ACTION[ActionType(request.action)],
             {
                 "mandate_id": request.intent.mandate_id,
                 "idempotency_key": reservation.key,
@@ -836,45 +1140,240 @@ class KernelService:
         return Outcome(200, stored)
 
     def _recover(self, request, reservation, results, watch) -> Outcome:
-        """An ``in_flight`` row past its TTL: ask the PSP what really happened.
+        """A request arrived on a key past its TTL. Resolve it, then answer.
 
-        Never blindly retried and never silently skipped — skipping is not a
-        transition. The poll is by ``client_ref`` because after a crash that is
-        the only identifier the kernel is certain it had.
+        The resolution is the same one :meth:`recovery_scan` performs — one
+        implementation, so a key resolved because a retry arrived and a key
+        resolved because the clock moved cannot reach different conclusions
+        about the same debit.
         """
-        self.idempotency.mark_recovering(reservation.key)
-        found = self._psp.poll(self._client_ref)
-        self.chain.append(
-            AuditActor.KERNEL,
-            AuditAction.RECOVERY_RECONCILED,
-            {
-                "mandate_id": request.intent.mandate_id,
-                "idempotency_key": reservation.key,
-                "polled_by": "client_ref",
-                "found": found is not None,
-                "state": str(found.state) if found is not None else None,
-            },
-        )
-        if found is None:
-            self.idempotency.release(reservation.key)
+        record = reservation.record or self.idempotency.get(reservation.key)
+        if record is None:  # pragma: no cover - released between read and here
             return Outcome(
                 202,
                 {
                     "status": "retry_later",
                     "idempotency_key": reservation.key,
-                    "detail": "reservation released; the PSP has no record",
+                    "detail": "the reservation is gone; ask again",
                 },
             )
-        settled = found.view()
+
+        reconciled = self._reconcile(record)
+
+        if reconciled["outcome"] == "settled":
+            # The key is terminal now, so the caller gets the recorded outcome
+            # rather than a fresh judgement of a ledger this very action moved.
+            settled_record = self.idempotency.get(reservation.key)
+            if settled_record is not None:
+                return self._replay(
+                    request,
+                    Reservation("terminal", reservation.key, settled_record),
+                    watch,
+                )
+
+        return Outcome(
+            202,
+            {
+                "status": "retry_later",
+                "idempotency_key": reservation.key,
+                "recovery": reconciled["outcome"],
+                "detail": reconciled["detail"],
+            },
+        )
+
+    # -- the recovery scan ------------------------------------------------
+
+    def recovery_scan(self) -> dict[str, Any]:
+        """Resolve every reservation whose owner never came back.
+
+        Runs at the clock barrier (SPEC.md §15) rather than on a timer, so a
+        recovery happens at a point in the run that the seed and the schedule
+        determine and nothing else. It needs no request and no live caller —
+        that is the whole point of it, the caller is the thing that died.
+
+        The scan is the answer to the one failure mode a payments kernel cannot
+        wave away: **a debit exists and nothing local knows.** It is never a
+        blind retry, which double-charges, and never a silent skip, which
+        strands the debit. It asks the PSP and writes down the answer.
+        """
+        if self.poisoned is not None:
+            # A kernel whose own record is untrustworthy must not be moving a
+            # ledger on the strength of it.
+            return {"scanned": 0, "resolved": [], "poisoned": self.poisoned}
+        try:
+            open_rows = self.idempotency.open_reservations()
+        except StoreUnavailable as exc:
+            return {"scanned": 0, "resolved": [], "error": str(exc)}
+
+        return {
+            "scanned": len(open_rows),
+            "resolved": [self._reconcile(record) for record in open_rows],
+        }
+
+    def _resolve(self, record: IdempotencyRecord) -> Resolution:
+        """Ask the rail what happened to one reserved action.
+
+        The poll is by ``client_ref`` because after a crash that is the only
+        identifier the kernel is certain it had — a payment id it never got to
+        write down is not an identifier, it is a hope.
+
+        The answer is read differently per action, and that is the substance of
+        this method. A poll returning a payment does not mean "your capture
+        went through"; it means "a payment exists". For an authorize that is
+        the whole question. For a capture it is not: a payment sitting at
+        ``authorized`` is proof the capture never reached the rail, and
+        committing a capture against it would book a debit that did not happen.
+        """
+        found = self._psp.poll(record.client_ref)
+        if found is None:
+            return Resolution(
+                "released", "the PSP has no record of this client_ref"
+            )
+
+        view = found.view()
+        state = PaymentState(view["state"])
+
+        if record.action == ActionType.AUTHORIZE:
+            # A payment exists at all, so the authorize reached the rail.
+            return Resolution("settled", f"the rail holds a payment in {state}", view)
+
+        if record.action == ActionType.CAPTURE:
+            if is_settled(state):
+                return Resolution("settled", "the rail captured; the debit exists", view)
+            return Resolution(
+                "released",
+                f"the rail never captured; the payment is still {state}",
+                view,
+            )
+
+        # A refund's outcome is not readable from a payment poll: the rail's
+        # payment state says nothing about whether a credit was raised. Left
+        # unresolved on purpose rather than guessed — and safe to leave, because
+        # the PSP dedups a refund on the idempotency key, so a later retry of
+        # the *same* key cannot become a second credit.
+        return Resolution(
+            "unresolved",
+            "a refund's outcome cannot be read from a payment poll; the key is "
+            "held and a retry carries the same idempotency key",
+            view,
+        )
+
+    def _reconcile(self, record: IdempotencyRecord) -> dict[str, Any]:
+        """Resolve one reservation and write down what was decided.
+
+        Every exit from this method leaves either a terminal row, a released
+        key, or a ``recovering`` row the next scan will pick up again. There is
+        no path that leaves a reservation unexamined, because skipping is not a
+        transition.
+        """
+        summary: dict[str, Any] = {
+            "idempotency_key": record.key,
+            "action": str(record.action),
+            "mandate_id": record.mandate_id,
+            "cart_hash": record.cart_hash,
+            "amount_paise": record.amount_paise,
+            "polled_by": "client_ref",
+        }
+        try:
+            if record.state != IdempotencyState.RECOVERING:
+                self.idempotency.mark_recovering(record.key)
+            resolution = self._resolve(record)
+        except Exception as exc:  # noqa: BLE001 — an unreachable rail is a state
+            summary.update(outcome="unresolved", detail=f"{type(exc).__name__}: {exc}")
+            self._append_recovery(summary, within=False)
+            return summary
+
+        summary.update(outcome=resolution.outcome, detail=resolution.detail)
+        payment = resolution.payment
+        summary["found"] = payment is not None
+        summary["state"] = payment["state"] if payment else None
+
+        if resolution.outcome == "settled" and payment is not None:
+            try:
+                self._commit_recovered(record, payment, summary)
+            except Exception as exc:  # noqa: BLE001
+                # The row stays ``recovering``; the next scan asks again. A
+                # failure to write the reconciliation must not look like a
+                # reconciliation that found nothing.
+                summary.update(
+                    outcome="unresolved",
+                    detail=f"recovered state did not commit: {exc}",
+                )
+                self._append_recovery(summary, within=False)
+            return summary
+
+        if resolution.outcome == "released":
+            self.idempotency.release(record.key)
+
+        self._append_recovery(summary, within=False)
+        return summary
+
+    def _commit_recovered(
+        self, record: IdempotencyRecord, payment: dict[str, Any], summary: dict[str, Any]
+    ) -> None:
+        """Ledger, idempotency and chain in one transaction, as at step 8.
+
+        The same all-or-nothing rule, for the same reason: a recovery that
+        moved the ledger without recording itself would be indistinguishable
+        from the crash it is repairing.
+        """
+        ledger_before = self._ledger_snapshot(record.mandate_id)
         self._conn.execute("BEGIN IMMEDIATE")
         try:
-            self._apply_settlement(request, request.action, settled)
-            self.idempotency.commit(reservation.key, jcs({"recovered": True}))
+            self._apply_settlement(
+                ActionType(record.action),
+                mandate_id=record.mandate_id,
+                cart_hash=record.cart_hash,
+                amount=record.amount_paise,
+                currency=payment.get("currency", "INR"),
+                key=record.key,
+                settled=payment,
+            )
+            # Often ``False``, and that is the system working: a webhook may
+            # have reconciled the ledger before the TTL elapsed, and then all
+            # the scan has left to do is close the key. Recorded either way, so
+            # "the scan ran and moved nothing" and "the scan did not run" are
+            # different facts in the chain rather than the same silence.
+            summary["ledger_moved"] = ledger_before != self._ledger_snapshot(
+                record.mandate_id
+            )
+            entry = self._append_recovery(
+                {**summary, "ledger": self._ledger_snapshot(record.mandate_id)},
+                within=True,
+            )
+            self.idempotency.commit(
+                record.key,
+                jcs(
+                    {
+                        "decision": str(Decision.ALLOW),
+                        "action": str(record.action),
+                        "mandate_id": record.mandate_id,
+                        "checks": [
+                            {"id": 7, "name": CHECK_NAMES[7], "result": "pass"},
+                            {"id": 9, "name": CHECK_NAMES[9], "result": "pass"},
+                        ],
+                        "denied_by": [],
+                        "reason_code": str(ReasonCode.OK),
+                        "idempotency_key": record.key,
+                        "recovered": True,
+                        "audit": {
+                            "seq": entry.seq,
+                            "entry_hash": entry.entry_hash,
+                            "prev_hash": entry.prev_hash,
+                        },
+                        "payment": payment,
+                    }
+                ),
+            )
             self._conn.execute("COMMIT")
         except Exception:
             self._conn.execute("ROLLBACK")
             raise
-        return Outcome(200, {"recovered": True, "payment": settled})
+        summary["audit_seq"] = entry.seq
+
+    def _append_recovery(self, payload: dict[str, Any], *, within: bool):
+        append = self.chain.append_within if within else self.chain.append
+        return append(AuditActor.KERNEL, AuditAction.RECOVERY_RECONCILED, payload)
 
     # -- fail-closed ------------------------------------------------------
 

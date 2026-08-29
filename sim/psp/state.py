@@ -20,17 +20,25 @@ The refund machine has the one backwards-looking edge in the system:
 ``failed → processing`` on a retry with the same key. It is not a widening —
 the key is the same, so a retry cannot become a second credit — and it is where
 UPI's deemed-success position lives: debited, credit unconfirmed.
+
+The **forward order** these tables are read against lives in
+:mod:`kernel.payments`, not here, and is re-exported for callers that only know
+about the simulator. The kernel needs the same order to judge a webhook, and it
+cannot get it from the simulator — the simulator is the thing sending the
+webhook.
 """
 
 from __future__ import annotations
 
 from kernel.enums import PaymentState, RefundState
+from kernel.payments import PAYMENT_RANK, is_forward_payment
 
 __all__ = [
     "PAYMENT_TRANSITIONS",
     "REFUND_TRANSITIONS",
     "PAYMENT_TERMINAL",
     "REFUND_TERMINAL",
+    "PAYMENT_RANK",
     "IllegalTransition",
     "check_payment_transition",
     "check_refund_transition",
@@ -75,18 +83,6 @@ REFUND_TERMINAL = frozenset(
     state for state, onward in REFUND_TRANSITIONS.items() if not onward
 )
 
-#: Rank in the forward order, used to decide whether a late webhook is stale
-#: (ignorable) or backwards (refusable). ``failed`` and ``voided`` sit at the
-#: rank of the state they leave from, because they are exits, not progress.
-_PAYMENT_RANK = {
-    PaymentState.CREATED: 0,
-    PaymentState.FAILED: 0,
-    PaymentState.AUTHORIZED: 1,
-    PaymentState.VOIDED: 1,
-    PaymentState.CAPTURED: 2,
-    PaymentState.REVERSED: 3,
-}
-
 
 def check_payment_transition(
     current: PaymentState, requested: PaymentState
@@ -103,12 +99,3 @@ def check_refund_transition(
     if requested not in REFUND_TRANSITIONS[current]:
         raise IllegalTransition("refund", str(current), str(requested))
     return requested
-
-
-def is_forward_payment(current: PaymentState, requested: PaymentState) -> bool:
-    """Whether ``requested`` is later in the forward order than ``current``.
-
-    Used by webhook ingestion to tell "I already knew that" from "that cannot
-    have happened". Both are refused; only the second is a finding.
-    """
-    return _PAYMENT_RANK[requested] > _PAYMENT_RANK[current]

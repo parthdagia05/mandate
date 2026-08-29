@@ -274,6 +274,86 @@ class LedgerStore(Store):
             "UPDATE payment SET state = ? WHERE payment_id = ?", (state, payment_id)
         )
 
+    # -- the kernel's own refund records ----------------------------------
+
+    def record_refund(
+        self,
+        *,
+        refund_id: str,
+        payment_id: str,
+        amount_paise: int,
+        destination: dict[str, Any],
+        kind: str,
+        state: str,
+        idempotency_key: str,
+    ) -> None:
+        """Write the refund row. Runs inside the caller's transaction.
+
+        ``destination`` is check 8's output, which is
+        ``payment.source_json`` and nothing else. It is stored on the refund
+        rather than merely passed to the rail because the row is the kernel's
+        own account of where the money went: a refund whose destination lived
+        only in a PSP call is a refund nobody local can later be held to.
+
+        ``state`` is very often ``processing``, and that is the point. A UPI
+        refund's deemed-success position — debited, credit unconfirmed — is a
+        state the ledger holds rather than a wait the kernel resolves.
+        """
+        self._guard(self.name, "write")
+        self._conn.execute(
+            "INSERT OR REPLACE INTO refund"
+            " (refund_id, payment_id, amount_paise, destination_json, kind,"
+            "  state, idempotency_key)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                refund_id,
+                payment_id,
+                amount_paise,
+                jcs(destination),
+                kind,
+                state,
+                idempotency_key,
+            ),
+        )
+
+    def refunds_for_payment(self, payment_id: str) -> list[dict[str, Any]]:
+        def read() -> list[dict[str, Any]]:
+            return [
+                {
+                    "refund_id": row["refund_id"],
+                    "payment_id": row["payment_id"],
+                    "amount_paise": row["amount_paise"],
+                    "destination": json.loads(row["destination_json"]),
+                    "kind": row["kind"],
+                    "state": row["state"],
+                    "idempotency_key": row["idempotency_key"],
+                }
+                for row in self._conn.execute(
+                    "SELECT * FROM refund WHERE payment_id = ? ORDER BY refund_id",
+                    (payment_id,),
+                )
+            ]
+
+        return self._guarded("read", read)
+
+    def refunded_for_payment(self, payment_id: str) -> int:
+        """What this payment has already given back.
+
+        Check 8's cumulative conjunct reads this. Per payment as well as per
+        mandate: a mandate with room left over from other purchases must not be
+        able to fund a second refund of the *same* debit.
+        """
+
+        def read() -> int:
+            row = self._conn.execute(
+                "SELECT COALESCE(SUM(amount_paise), 0) AS total FROM refund"
+                " WHERE payment_id = ?",
+                (payment_id,),
+            ).fetchone()
+            return int(row["total"])
+
+        return self._guarded("read", read)
+
     def payments_for(self, mandate_id: str) -> list[dict[str, Any]]:
         def read() -> list[str]:
             return [

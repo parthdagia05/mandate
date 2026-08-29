@@ -69,9 +69,29 @@ class AuditActor(StrEnum):
 
 
 class AuditAction(StrEnum):
+    """Closed. Two members extend SPEC.md §07's list, and both are there
+    because the alternative was recording an event that did not happen.
+
+    ``authorize.replayed`` — the spec named ``capture.replayed`` and
+    ``refund.replayed`` and stopped. An authorize *is* replayable (two carts
+    with different ids and identical contents share an idempotency key, and the
+    second one replays the first), so without this name the only options were
+    to file it under ``refund.replayed`` — putting a refund in the results
+    table for a run that refunded nothing — or to leave a money-adjacent replay
+    unrecorded. Both are worse than one more name.
+
+    ``webhook.refused`` — a backwards delivery is neither ingested nor
+    deduped. Dedup means "I already have this outcome"; a webhook claiming
+    ``authorized`` after ``captured`` is claiming something that cannot have
+    happened, which is a finding rather than a duplicate. Collapsing the two
+    would make F-08 invisible in the chain, and F-08 is one of the failures the
+    suite exists to show.
+    """
+
     INTENT_REGISTERED = "intent.registered"
     AUTHORIZE_ALLOW = "authorize.allow"
     AUTHORIZE_DENY = "authorize.deny"
+    AUTHORIZE_REPLAYED = "authorize.replayed"
     CAPTURE_ALLOW = "capture.allow"
     CAPTURE_DENY = "capture.deny"
     CAPTURE_REPLAYED = "capture.replayed"
@@ -83,6 +103,7 @@ class AuditAction(StrEnum):
     ESCALATION_RESOLVED = "escalation.resolved"
     WEBHOOK_INGESTED = "webhook.ingested"
     WEBHOOK_DEDUPED = "webhook.deduped"
+    WEBHOOK_REFUSED = "webhook.refused"
     RECOVERY_RECONCILED = "recovery.reconciled"
     KERNEL_FAIL_CLOSED = "kernel.fail_closed"
 

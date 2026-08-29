@@ -76,18 +76,52 @@ def test_capturing_twice_with_different_keys_is_refused_by_the_machine(world):
         world.psp.capture(captured.payment_id, 1000, idem="ref_t:cap-again")
 
 
-def test_a_refund_credits_the_source_and_ignores_the_destination_asked_for(world):
-    """Class A7's floor. A PSP that credited wherever it was told would be
-    doing check 8's job, and A7 would pass for the wrong reason."""
-    captured = _pay(world, ref="ref_r")
-    with pytest.raises(ValueError, match="not the payment's source"):
-        world.psp.refund(captured.payment_id, 1000, ATTACKER, idem="ref_r:refund")
+def test_a_refund_credits_the_destination_it_was_given(world):
+    """Class A7's floor, and the one place the simulator is deliberately weaker
+    than a real UPI rail.
 
+    A rail that always credited the source would be doing check 8's job, which
+    sounds safe and is not: A7 would become inexpressible, its oracle could
+    never return ``True``, and the results table would show check 8 beating an
+    attack the harness had made unreachable. So the rail obeys, and *records*
+    that the credit did not reverse its own debit.
+    """
+    captured = _pay(world, ref="ref_r")
+    misdirected = world.psp.refund(
+        captured.payment_id, 1000, ATTACKER, idem="ref_r:refund"
+    )
+
+    assert misdirected.destination == ATTACKER
+    assert misdirected.source == captured.source
+    assert misdirected.misdirected is True
+    assert misdirected.state is RefundState.PROCESSING
+
+
+def test_an_honest_refund_is_not_flagged_as_misdirected(world):
+    captured = _pay(world, ref="ref_h")
     refund = world.psp.refund(
-        captured.payment_id, 1000, captured.source, idem="ref_r:refund"
+        captured.payment_id, 1000, captured.source, idem="ref_h:refund"
     )
     assert refund.destination == captured.source
-    assert refund.state is RefundState.PROCESSING
+    assert refund.misdirected is False
+
+
+def test_a_refund_above_the_captured_amount_is_still_refused(world):
+    """The refusals that remain are about the payment, not about policy: you
+    cannot give back more than was taken."""
+    captured = _pay(world, ref="ref_big")
+    with pytest.raises(ValueError, match="above the captured amount"):
+        world.psp.refund(captured.payment_id, 5000, captured.source, idem="ref_big:r")
+
+
+def test_a_retried_refund_with_the_same_key_is_one_credit(world):
+    """What makes "compensations get retried too, same key" safe to do."""
+    captured = _pay(world, ref="ref_rr")
+    first = world.psp.refund(captured.payment_id, 1000, captured.source, idem="k")
+    second = world.psp.refund(captured.payment_id, 1000, captured.source, idem="k")
+
+    assert first is second
+    assert len(world.psp.refund_ledger()) == 1
 
 
 def test_a_refund_settles_at_the_barrier(world, plane):

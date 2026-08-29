@@ -3,8 +3,13 @@
 M1 wired up ``hash-cart``, ``verify-chain`` and ``verify-fixtures``. M2 added
 ``run``, which is the one a reader who has not read the code types first. M3
 adds ``explain`` — the narrator over the audit chain — and ``run --config
-kernel`` and ``run --fault``. Later milestones add ``corpus``, ``oracles``,
-``matrix`` and ``ablate`` alongside them.
+kernel`` and ``run --fault``. M4 adds ``faults``, which lists what can be armed
+and the exact ``run`` line that arms it. Later milestones add ``corpus``,
+``oracles``, ``matrix`` and ``ablate`` alongside them.
+
+**Faults are armed on the run, not before it.** ``mk run --fault NAME[:TARGET]``
+rather than a separate stateful command, because each run builds its own seeded
+world: a fault armed by an earlier process would have nothing left to fire in.
 
 ``explain`` contains no model, and that is deliberate rather than frugal. The
 chain already records the values each check compared, so explaining a decision
@@ -233,11 +238,41 @@ def _narrate(detail: dict) -> list[str]:
                 f"{_rupees(detail.get('committed_paise', 0))} of "
                 f"{_rupees(detail.get('max_amount', 0))} committed"
             )
-    elif check_id == 8 and not failed:
-        lines.append(
-            f"  the refund goes to {_account(detail['destination'])}, read from "
-            f"{detail.get('destination_from')}"
-        )
+    elif check_id == 7:
+        if detail.get("replayed"):
+            lines.append(
+                "  this exact action already ran; its recorded outcome was "
+                "replayed and no second debit was made"
+            )
+        else:
+            lines.append(
+                f"  the idempotency key {detail.get('idempotency_key', '')[:16]}… "
+                "was reserved for this action"
+            )
+    elif check_id == 8:
+        if failed:
+            lines.append(f"  the refund conjunct that failed was {detail.get('conjunct', 'binding')}")
+            lines.append(f"    {detail.get('detail')}")
+            for key in (
+                "payment_id", "payment_state", "captured_paise",
+                "already_refunded_paise", "requested_amount",
+            ):
+                if key in detail:
+                    lines.append(f"    {key} = {detail[key]}")
+        else:
+            lines.append(
+                f"  the refund goes to {_account(detail['destination'])}, read from "
+                f"{detail.get('destination_from')}"
+            )
+            lines.append(
+                "  the request has no destination field; there was nothing to read one from"
+            )
+            lines.append(
+                f"  {_rupees(detail.get('requested_amount', 0))} of "
+                f"{_rupees(detail.get('captured_paise', 0))} captured, "
+                f"{_rupees(detail.get('already_refunded_paise', 0))} already returned "
+                f"({detail.get('kind')})"
+            )
     return lines
 
 
@@ -278,10 +313,10 @@ def cmd_explain(args: argparse.Namespace) -> int:
         print(f"the sentence the user said hashes to {payload['utterance_hash']}")
     if "mandate_id" in payload:
         print(f"the authority is {payload['mandate_id']}")
-    if "action" in payload:
+    if "action" in payload and "amount_paise" in payload:
         print(
             f"the request asked to {payload['action']} "
-            f"{_rupees(payload.get('amount_paise', 0))}"
+            f"{_rupees(payload['amount_paise'])}"
             + (f" to {_account(payload['payee'])}" if "payee" in payload else "")
         )
     print()
@@ -294,6 +329,36 @@ def cmd_explain(args: argparse.Namespace) -> int:
         print(f"  check {detail['id']} {detail['name']}: {verdict}")
         for line in _narrate(detail):
             print(f"  {line}")
+
+    if entry["action"].startswith("webhook."):
+        print(
+            f"the PSP said this payment is {payload.get('claimed_state')}; "
+            f"the kernel had it at {payload.get('current_state')}"
+        )
+        print(f"outcome: {payload.get('outcome')}")
+        if payload.get("outcome") == "deduped":
+            print(
+                "  already known. Dedup is on the kernel's own payment row, not on "
+                "the event id — a PSP resending with a fresh id is normal."
+            )
+        elif payload.get("outcome") == "refused":
+            print(
+                f"  refused by the {payload.get('refused_by')}: a claim earlier than "
+                "what the kernel already holds cannot move the payment backwards."
+            )
+        else:
+            booked = payload.get("ledger_reconciled") or {}
+            print(f"  ledger: {booked.get('why')}")
+
+    if entry["action"] == "recovery.reconciled":
+        print(f"a reservation for {payload.get('action')} was resolved against the PSP")
+        print(f"  polled by {payload.get('polled_by')}, outcome {payload.get('outcome')}")
+        print(f"  {payload.get('detail')}")
+        if "ledger_moved" in payload:
+            print(
+                "  the ledger moved" if payload["ledger_moved"]
+                else "  the ledger was already correct; only the key was closed"
+            )
 
     denied_by = payload.get("denied_by") or []
     if denied_by:
@@ -365,6 +430,27 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not captures:
         print("  (no money moved)")
 
+    if record.refunds:
+        print()
+        print(f"refunds: {len(record.refunds)}")
+        for refund in record.refunds:
+            flag = "  <- NOT the payment source" if refund["misdirected"] else ""
+            print(
+                f"  {_rupees(refund['amount_paise'])} -> "
+                f"{_account(refund['destination'])}   {refund['refund_id']}  "
+                f"state={refund['state']}{flag}"
+            )
+            print(f"  debited from {_account(refund['source'])}")
+
+    if record.recoveries:
+        print()
+        print("recovery scan")
+        for step in record.recoveries:
+            print(
+                f"  {step.get('action'):<10} {step.get('outcome'):<11} "
+                f"{step.get('detail')}"
+            )
+
     if record.decisions:
         print()
         print("kernel decisions")
@@ -408,6 +494,47 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"error         {record.error}")
 
     return 0 if record.error is None else 1
+
+
+def cmd_faults(args: argparse.Namespace) -> int:
+    """List what can be armed, where it fires, and the line that arms it.
+
+    Prints the ``mk run --fault`` invocation for each rather than describing it,
+    because a fault whose arming line has to be reconstructed from prose is a
+    fault that does not get run at a demo.
+    """
+    from sim.faults import CRASH_WINDOWS, FAULT_SITES, Fault
+
+    print(f"{'fault':<22} {'fires at':<38} arm it with")
+    for fault in Fault:
+        print(
+            f"{str(fault):<22} {str(FAULT_SITES[fault]):<38} "
+            f"--fault {fault}"
+        )
+    print()
+    print("targets")
+    print(
+        "  store_unavailable:<store>   which store fails — "
+        "audit | ledger | idempotency | nonces"
+    )
+    print("  crash_after_reserve:<action>.<window>   where the kernel dies:")
+    for window in sorted(CRASH_WINDOWS):
+        print(f"      {window}")
+    print()
+    print("  after_reserve   dies before the rail is touched; recovery finds no")
+    print("                  debit and releases the key. Zero debits.")
+    print("  after_psp_call  dies after the rail answered and before the ledger")
+    print("                  heard; recovery commits the debit that exists.")
+    print("                  Exactly one debit. This is the A6 demonstration.")
+    print()
+    print("examples")
+    print(
+        "  mk run --task benign-01 --config kernel "
+        "--fault crash_after_reserve:capture.after_psp_call"
+    )
+    print("  mk run --task benign-01 --config kernel --fault duplicate_webhook")
+    print("  mk run --task benign-01 --config kernel --fault store_unavailable:ledger")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -462,10 +589,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=None,
         metavar="NAME[:TARGET]",
-        help="arm a fault before the run, e.g. store_unavailable:audit",
+        help=(
+            "arm a fault for this run, e.g. store_unavailable:audit or "
+            "crash_after_reserve:capture.after_psp_call. See `mk faults`."
+        ),
     )
     run.add_argument("--json", action="store_true", help="print the run record only")
     run.set_defaults(func=cmd_run)
+
+    faults = sub.add_parser(
+        "faults", help="list the faults that can be armed, and how to arm them"
+    )
+    faults.set_defaults(func=cmd_faults)
 
     explain = sub.add_parser(
         "explain", help="say in English what one audit entry decided, and why"
