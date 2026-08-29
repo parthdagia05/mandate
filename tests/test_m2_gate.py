@@ -80,15 +80,20 @@ def test_all_three_benign_tasks_complete():
         assert record.error is None
 
 
-def test_configs_that_are_not_built_yet_say_so():
+def test_configs_that_do_not_exist_say_so():
     """A config that silently ran as 'undefended' would produce a defended
     number from an undefended run, which is the worst failure available.
 
-    ``kernel`` arrived in M3 and is no longer on this list. ``model-only`` is
-    M6's arm and still refuses, because a table row for a defence nobody has
-    built yet is worse than a missing row.
+    Every arm on the list is built now — ``kernel`` arrived in M3, ``model-only``
+    and the two agent-guard arms in M6 — so what is left to refuse is a name
+    nobody defined. It is refused by name rather than defaulted, because a
+    typo'd arm that ran as the control would put an undefended number in a
+    defended column and nothing downstream could tell.
     """
     import pytest
 
-    with pytest.raises(NotImplementedError):
-        run_case("benign-01", config="model-only", model="scripted")
+    from harness.runner import CONFIGS
+
+    with pytest.raises(ValueError, match="unknown config"):
+        run_case("benign-01", config="kernal", model="scripted")
+    assert "model-only" in CONFIGS

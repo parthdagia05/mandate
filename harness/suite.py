@@ -135,6 +135,10 @@ class SuiteResult:
     started_at: str
     finished_at: str = ""
     records: list[RunRecord] = field(default_factory=list)
+    #: Checks the ablation switched off for this suite. Empty for every suite
+    #: whose numbers may be published as a configuration result; its presence
+    #: in the metadata is what marks a file as an ablation row.
+    disabled_checks: tuple[int, ...] = ()
     #: Set when the corpus moved between the first hash and the last. The
     #: suite is **not** deleted — the lines are still evidence of something —
     #: but it may not be published, and this says why.
@@ -219,6 +223,7 @@ class SuiteResult:
                 "machine": platform.machine(),
             },
             "sequential": True,
+            "disabled_checks": sorted(self.disabled_checks),
             "batch_b_openings": len(batch_b_openings()),
         }
 
@@ -278,7 +283,13 @@ def select(
 
 
 def _suite_id(
-    cases: Sequence[SuiteCase], *, config: str, seed: str, model: str, manifest: str
+    cases: Sequence[SuiteCase],
+    *,
+    config: str,
+    seed: str,
+    model: str,
+    manifest: str,
+    disabled_checks: tuple[int, ...] = (),
 ) -> str:
     """Identifies the *experiment*, not the invocation.
 
@@ -294,6 +305,11 @@ def _suite_id(
             "seed": seed,
             "model": model,
             "corpus_manifest": manifest,
+            # In the id, so the ablation's seven suites are seven experiments
+            # rather than one experiment run seven times. Without it every
+            # ablation row would share the baseline's id and a reader could not
+            # tell which file produced which row.
+            "disabled_checks": sorted(disabled_checks),
         }
     )
 
@@ -348,6 +364,7 @@ def run_suite(
     out: Path | None = None,
     cassette: Path | None = None,
     faults: list[dict[str, Any]] | None = None,
+    disabled_checks: tuple[int, ...] = (),
     progress: Callable[[int, int, RunRecord], None] | None = None,
 ) -> SuiteResult:
     """Run every case in sequence and stream one JSONL line each.
@@ -384,7 +401,14 @@ def run_suite(
         )
     manifest = current_hash()
 
-    suite_id = _suite_id(plan, config=config, seed=seed, model=model, manifest=manifest)
+    suite_id = _suite_id(
+        plan,
+        config=config,
+        seed=seed,
+        model=model,
+        manifest=manifest,
+        disabled_checks=disabled_checks,
+    )
     path = Path(out) if out is not None else RUNS_DIR / f"{suite_id[7:23]}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -408,6 +432,7 @@ def run_suite(
         path=path,
         meta_path=path.with_suffix(".meta.json"),
         started_at=_now(),
+        disabled_checks=tuple(disabled_checks),
     )
 
     if not _RUNNING.acquire(blocking=False):
@@ -429,6 +454,7 @@ def run_suite(
                         model=model,
                         cassette=cassette,
                         faults=faults,
+                        disabled_checks=disabled_checks,
                         export_chain=(
                             chains / f"{case.label}.chain.jsonl"
                             if chains is not None

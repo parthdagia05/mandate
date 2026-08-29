@@ -364,9 +364,15 @@ def test_a_corpus_that_moves_mid_suite_is_reported_not_published(tmp_path, monke
 
 
 def test_an_arm_that_does_not_exist_is_refused_before_the_file_is_opened(tmp_path):
-    """A hundred identical NotImplementedError lines is a worse way to find out."""
-    with pytest.raises(NotImplementedError, match="model-only"):
-        _suite(tmp_path, select("batch_a", attack_class="A1")[:2], config="model-only")
+    """A hundred identical error lines is a worse way to find out.
+
+    The check is up front, before the output file is opened, which is what the
+    second assertion is for: a suite that discovered a bad arm on case one would
+    leave a JSONL of a hundred identical failures and a denominator nobody could
+    interpret.
+    """
+    with pytest.raises(ValueError, match="unknown config"):
+        _suite(tmp_path, select("batch_a", attack_class="A1")[:2], config="kernal")
     assert not (tmp_path / "suite.jsonl").exists()
 
 

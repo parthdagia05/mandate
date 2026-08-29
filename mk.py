@@ -35,6 +35,27 @@ REPO_ROOT = Path(__file__).resolve().parent
 #: reachable, which is what makes ``mk verify-chain`` runnable from anywhere.
 DEFAULT_CHAIN_PATH = REPO_ROOT / "runs" / "latest.chain.jsonl"
 
+#: The arms ``--config`` accepts, duplicated here for the same reason
+#: :data:`DEFAULT_CHAIN_PATH` is: ``mk`` must stay importable with no project
+#: dependencies reachable, which is what makes ``mk verify-chain`` runnable from
+#: a directory that has none. ``tests/test_api_surface.py`` asserts this list
+#: and :data:`harness.runner.CONFIGS` are the same list, so the duplication
+#: cannot drift into a ``--config`` that silently means something else.
+CONFIG_CHOICES = (
+    "undefended",
+    "model-only",
+    "kernel",
+    "agent-guard",
+    "kernel+agent-guard",
+)
+
+#: The three ``mk matrix`` runs unless told otherwise: no defence, the defence
+#: everybody proposes first, and this project's.
+HEADLINE_CHOICES = ("undefended", "model-only", "kernel")
+
+#: Where ``mk report`` writes the document unless told otherwise.
+DEFAULT_RESULTS_PATH = REPO_ROOT / "results.md"
+
 __all__ = ["main"]
 
 
@@ -789,6 +810,327 @@ def cmd_oracles(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_matrix(args: argparse.Namespace) -> int:
+    """Run every arm over every dataset and write the JSONL the table is built from.
+
+    **The batch B seal is opened here and nowhere else in normal use.** Batch B
+    is the held-out set and the headline number comes from it, so opening it is
+    a decision with a reason attached: ``--reason`` is required for a matrix
+    that touches it, the opening is appended to
+    ``harness/attacks/openings.jsonl``, and a second one needs ``--override``
+    and is recorded as an override. Nothing here can prevent a second read.
+    What it prevents is a second read nobody can see afterwards.
+
+    Writes the report at the end unless ``--no-report`` is passed, because a
+    matrix whose numbers never reach ``results.md`` is a directory of JSONL
+    nobody will open.
+    """
+    from harness.matrix import run_matrix
+
+    datasets = args.dataset or ["benign", "batch_a"]
+    configs = args.config or list(HEADLINE_CHOICES)
+
+    if "batch_b" in datasets and not args.reason:
+        print(
+            "mk matrix --dataset batch_b needs --reason. Batch B is the "
+            "held-out set and the headline number comes from it; the reason "
+            "goes in harness/attacks/openings.jsonl beside the timestamp, "
+            "which is what makes 'opened once' something a reader can check.",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(
+        f"matrix  datasets {', '.join(datasets)}  configs {', '.join(configs)}  "
+        f"seed {args.seed}  model {args.model}"
+    )
+    print("suites run in sequence, one process, one kernel per case")
+    print()
+
+    state = {"cell": None}
+
+    def progress(dataset: str, config: str, index: int, total: int) -> None:
+        if state["cell"] != (dataset, config):
+            state["cell"] = (dataset, config)
+            print(f"  {dataset} / {config}  ({total} cases)")
+        if index == total:
+            print(f"    {index}/{total} done")
+
+    try:
+        matrix = run_matrix(
+            datasets=datasets,
+            configs=configs,
+            seed=args.seed,
+            model=args.model,
+            out_dir=Path(args.out) if args.out else None,
+            reason=args.reason or "",
+            override=args.override,
+            limit=args.limit,
+            progress=None if args.quiet else progress,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"mk matrix: {exc}", file=sys.stderr)
+        return 1
+
+    print()
+    _print_matrix_summary(matrix)
+
+    if matrix.corpus_drift:
+        print(file=sys.stderr)
+        print(
+            "the corpus moved while the matrix was running; none of it may be "
+            "published:",
+            file=sys.stderr,
+        )
+        for difference in matrix.corpus_drift:
+            print(f"  {difference}", file=sys.stderr)
+        return 1
+
+    if not args.no_report:
+        out = Path(args.results) if args.results else DEFAULT_RESULTS_PATH
+        _write_report(matrix, None, out)
+    return 0
+
+
+def _print_matrix_summary(matrix) -> None:
+    from harness.metrics import (
+        benign_utility,
+        false_block_rate,
+        targeted_asr,
+        utility_under_attack,
+    )
+
+    print(f"{'dataset':<10}{'config':<20}{'ASR':<26}{'utility':<26}")
+    for cell in matrix.cells:
+        if cell.dataset == "benign":
+            left = benign_utility(cell.records)
+            print(f"{cell.dataset:<10}{cell.config:<20}{'—':<26}{left.cell():<26}")
+            print(
+                f"{'':<10}{'':<20}false blocks "
+                f"{false_block_rate(cell.records).cell()}"
+            )
+        else:
+            print(
+                f"{cell.dataset:<10}{cell.config:<20}"
+                f"{targeted_asr(cell.records).cell():<26}"
+                f"{utility_under_attack(cell.records).cell():<26}"
+            )
+    print()
+    print(f"corpus          {matrix.corpus_manifest}")
+    print(f"matrix          {matrix.out_dir}")
+    print(f"matrix_id       {matrix.matrix_id}")
+    print(f"batch B opened  {len(matrix.batch_b_openings)} time(s) on record")
+    print()
+    print(
+        "Wilson 95% intervals, n is 15 per class. Two columns whose intervals "
+        "overlap have not been shown to differ."
+    )
+
+
+def cmd_ablate(args: argparse.Namespace) -> int:
+    """Turn off one check at a time and see which class stops being defended.
+
+    Only the kernel arm has checks, so only the kernel arm is ablated. The
+    baseline is re-run inside this command rather than borrowed from a matrix,
+    so every row was produced in one process against one corpus hash on one
+    machine — a borrowed baseline would make every delta partly a difference
+    between two environments.
+    """
+    from harness.matrix import ABLATABLE, run_ablation
+
+    checks = tuple(args.check) if args.check else ABLATABLE
+    print(
+        f"ablate  dataset {args.dataset}  checks {', '.join(str(c) for c in checks)}  "
+        f"seed {args.seed}  model {args.model}"
+    )
+    print()
+
+    def progress(label: str, index: int, total: int) -> None:
+        if label == "baseline":
+            print("  baseline: all nine checks on")
+        else:
+            print(f"  {index}/{total}  {label}")
+
+    try:
+        ablation = run_ablation(
+            dataset=args.dataset,
+            checks=checks,
+            seed=args.seed,
+            model=args.model,
+            out_dir=Path(args.out) if args.out else None,
+            limit=args.limit,
+            modes=tuple(args.mode) if args.mode else ("single", "isolated", "floor"),
+            progress=None if args.quiet else progress,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"mk ablate: {exc}", file=sys.stderr)
+        return 1
+
+    from harness.metrics import asr_by_class, targeted_asr
+    from harness.report import ablation_verdicts
+
+    print()
+    classes = sorted(
+        {cid.split("-", 1)[0] for r in ablation.baseline if (cid := r.get("case_id"))}
+    )
+    base = asr_by_class(ablation.baseline)
+    floor_row = next((r for r in ablation.rows if r.mode == "floor"), None)
+    floor = asr_by_class(floor_row.records) if floor_row is not None else {}
+
+    def line(label: str, records, against: dict, mark: str) -> str:
+        here = asr_by_class(records)
+        cells = ""
+        for cls in classes:
+            if cls not in here:
+                cells += f"{'—':<9}"
+                continue
+            other = against.get(cls)
+            flag = ""
+            if other is not None and (
+                (mark == "^" and here[cls].k > other.k)
+                or (mark == "v" and here[cls].k < other.k)
+            ):
+                flag = mark
+            cells += f"{here[cls].p * 100:>6.1f}%{flag:<3}"
+        return f"{label:<24}{targeted_asr(records).p * 100:>7.1f}%  {cells}"
+
+    print(f"{'configuration':<24}{'overall':<10}" + "".join(f"{c:<9}" for c in classes))
+    print(line("all nine on", ablation.baseline, {}, ""))
+
+    singles = [r for r in ablation.rows if r.mode == "single"]
+    if singles:
+        print()
+        print("  one check off — is it necessary, given the others?   ^ = ASR rose")
+        for row in singles:
+            print(line(row.label, row.records, base, "^"))
+
+    isolated = [r for r in ablation.rows if r.mode == "isolated"]
+    if floor_row is not None:
+        print()
+        print("  only one check on — what does it stop by itself?     v = held below the floor")
+        print(line(floor_row.label + " (floor)", floor_row.records, base, "^"))
+        for row in isolated:
+            print(line(row.label, row.records, floor, "v"))
+
+    print()
+    verdicts = ablation_verdicts(ablation)
+    print(f"{'check':<10}{'necessary for':<22}{'stops alone':<22}earns its row")
+    for check_id in sorted(verdicts):
+        entry = verdicts[check_id]
+        print(
+            f"{'check ' + str(check_id):<10}"
+            f"{', '.join(entry['necessary_for']) or '—':<22}"
+            f"{', '.join(entry['sufficient_for']) or '—':<22}"
+            f"{'yes' if entry['earns_row'] else 'NO'}"
+        )
+    unearned = [c for c in sorted(verdicts) if not verdicts[c]["earns_row"]]
+    if unearned:
+        print()
+        print(
+            "checks that stopped nothing under either question: "
+            + ", ".join(str(c) for c in unearned)
+            + " — a finding about the check and about this corpus, printed "
+            "rather than omitted"
+        )
+    zero_at_floor = [c for c in classes if c in floor and floor[c].k == 0]
+    if zero_at_floor:
+        print(
+            "classes at zero with every predicate off: "
+            + ", ".join(zero_at_floor)
+            + " — stopped by something structural, not by a check"
+        )
+    print()
+    print(f"ablation        {ablation.out_dir}")
+    print(f"corpus          {ablation.corpus_manifest}")
+    return 0
+
+
+def _write_report(matrix, ablation, out: Path) -> None:
+    from harness.report import render_results
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(render_results(matrix, ablation=ablation))
+    print(f"results         {out}")
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Render ``results.md`` from a matrix directory already on disk.
+
+    A separate command from ``mk matrix`` on purpose: the published table has to
+    be reproducible **from the files** by somebody who did not run the suites. A
+    renderer that could only read the object the matrix returned would make
+    every number a property of the process that produced it.
+    """
+    from harness.matrix import load_matrix
+
+    try:
+        matrix = load_matrix(Path(args.matrix))
+    except (FileNotFoundError, KeyError) as exc:
+        print(
+            f"mk report: {args.matrix} is not a matrix directory ({exc}). "
+            "Run `mk matrix` first; it leaves a matrix.json beside its JSONL.",
+            file=sys.stderr,
+        )
+        return 2
+
+    ablation = None
+    if args.ablation:
+        ablation = _load_ablation(Path(args.ablation))
+        if ablation is None:
+            print(
+                f"mk report: {args.ablation} is not an ablation directory. "
+                "Run `mk ablate` first.",
+                file=sys.stderr,
+            )
+            return 2
+
+    _write_report(matrix, ablation, Path(args.out) if args.out else DEFAULT_RESULTS_PATH)
+    return 0
+
+
+def _load_ablation(directory: Path):
+    """Rebuild an ablation from the files ``mk ablate`` left behind."""
+    from harness.matrix import AblationResult, AblationRow
+
+    index = directory / "ablation.json"
+    if not index.exists():
+        return None
+    body = json.loads(index.read_text())
+
+    def read(path: Path) -> list:
+        return [
+            {**json.loads(line), "dataset": body["dataset"]}
+            for line in path.read_text().splitlines()
+            if line.strip()
+        ]
+
+    result = AblationResult(
+        dataset=body["dataset"],
+        seed=body["seed"],
+        model=body["model"],
+        corpus_manifest=body["corpus_manifest"],
+        out_dir=directory,
+        baseline_suite_id=body["baseline_suite_id"],
+        started_at=body.get("started_at", ""),
+        finished_at=body.get("finished_at", ""),
+    )
+    result.baseline = read(directory / f"{body['dataset']}.kernel.jsonl")
+    for row in body["rows"]:
+        path = directory / row["records"]
+        result.rows.append(
+            AblationRow(
+                check_ids=tuple(row["check_ids"]),
+                label=row["label"],
+                mode=row["mode"],
+                suite_id=row["suite_id"],
+                path=path,
+                records=read(path),
+            )
+        )
+    return result
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mk", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -821,8 +1163,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--config",
         default="undefended",
-        choices=["undefended", "model-only", "kernel"],
-        help="which arm of the experiment; M2 ships 'undefended'",
+        choices=list(CONFIG_CHOICES),
+        help=(
+            "which arm of the experiment. 'kernel' runs the undefended agent "
+            "on purpose — every guarantee has to hold with an adversarial one"
+        ),
     )
     run.add_argument(
         "--attack", default=None, help="an attack case id, e.g. A1-seed-1"
@@ -875,7 +1220,7 @@ def build_parser() -> argparse.ArgumentParser:
     suite.add_argument(
         "--config",
         default="undefended",
-        choices=["undefended", "model-only", "kernel"],
+        choices=list(CONFIG_CHOICES),
         help="which arm of the experiment",
     )
     suite.add_argument(
@@ -908,6 +1253,103 @@ def build_parser() -> argparse.ArgumentParser:
         "--quiet", action="store_true", help="summary only, no line per case"
     )
     suite.set_defaults(func=cmd_suite)
+
+    matrix = sub.add_parser(
+        "matrix",
+        help="run every arm over every dataset; the table results.md is built from",
+        description=(
+            "Suites run in sequence in one process. A matrix over batch_b "
+            "opens the held-out set, which needs --reason and is logged; a "
+            "second opening needs --override and is logged as an override."
+        ),
+    )
+    matrix.add_argument(
+        "--dataset",
+        action="append",
+        choices=["benign", "batch_a", "batch_b"],
+        default=None,
+        help="repeatable; default: benign and batch_a",
+    )
+    matrix.add_argument(
+        "--config",
+        action="append",
+        choices=list(CONFIG_CHOICES),
+        default=None,
+        help=f"repeatable; default: {', '.join(HEADLINE_CHOICES)}",
+    )
+    matrix.add_argument("--seed", default="0")
+    matrix.add_argument(
+        "--model", default="auto", help="auto | scripted | cassette | live | a model id"
+    )
+    matrix.add_argument(
+        "--reason",
+        default=None,
+        help="why batch B is being opened. Required for --dataset batch_b",
+    )
+    matrix.add_argument(
+        "--override",
+        action="store_true",
+        help="open batch B again. Logged as an override; the headline number "
+        "is only a held-out number the first time",
+    )
+    matrix.add_argument("--limit", type=int, default=None, help="cases per suite")
+    matrix.add_argument("--out", default=None, help="where to write the matrix")
+    matrix.add_argument(
+        "--results", default=None, help="where to write results.md (default ./results.md)"
+    )
+    matrix.add_argument(
+        "--no-report", action="store_true", help="write the JSONL but not results.md"
+    )
+    matrix.add_argument("--quiet", action="store_true")
+    matrix.set_defaults(func=cmd_matrix)
+
+    ablate = sub.add_parser(
+        "ablate",
+        help="turn off one check at a time and see which class stops being defended",
+        description=(
+            "Only the kernel arm has checks. Checks 7 and 9 are lifecycle "
+            "steps rather than predicates and are not ablatable; results.md "
+            "names them with that reason instead of omitting the rows."
+        ),
+    )
+    ablate.add_argument(
+        "--dataset", default="batch_a", choices=["batch_a", "batch_b"]
+    )
+    ablate.add_argument(
+        "--check",
+        action="append",
+        type=int,
+        default=None,
+        help="repeatable; default: every ablatable check (1-6 and 8)",
+    )
+    ablate.add_argument(
+        "--mode",
+        action="append",
+        choices=["single", "isolated", "floor"],
+        default=None,
+        help=(
+            "repeatable; default: all three. 'single' asks whether a check is "
+            "necessary given the others, 'isolated' what it stops on its own, "
+            "'floor' how much of the arm's result is the plumbing"
+        ),
+    )
+    ablate.add_argument("--seed", default="0")
+    ablate.add_argument("--model", default="auto")
+    ablate.add_argument("--limit", type=int, default=None)
+    ablate.add_argument("--out", default=None)
+    ablate.add_argument("--quiet", action="store_true")
+    ablate.set_defaults(func=cmd_ablate)
+
+    report = sub.add_parser(
+        "report",
+        help="render results.md from a matrix directory already on disk",
+    )
+    report.add_argument("matrix", help="a directory left by `mk matrix`")
+    report.add_argument(
+        "--ablation", default=None, help="a directory left by `mk ablate`"
+    )
+    report.add_argument("--out", default=None, help="default ./results.md")
+    report.set_defaults(func=cmd_report)
 
     corpus = sub.add_parser(
         "corpus", help="count the corpus and check the manifest hash has not moved"

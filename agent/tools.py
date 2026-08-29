@@ -29,7 +29,15 @@ from sim.eventlog import SimActor, SimEvent
 from sim.merchants.base import MerchantResponse
 from sim.world import World
 
-__all__ = ["ToolResult", "UndefendedTools", "KernelTools", "timed"]
+__all__ = [
+    "ToolResult",
+    "UndefendedTools",
+    "KernelTools",
+    "GuardedTools",
+    "GuardedKernelTools",
+    "ScreenedTools",
+    "timed",
+]
 
 
 def timed(call: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -129,6 +137,25 @@ class UndefendedTools:
     #: call and the two distributions are measuring the same work.
     timings: list[dict[str, Any]] = field(default_factory=list)
 
+    def _admit(self, call: str, **fields: Any) -> None:
+        """The field-admission boundary. A no-op here, and that is the control arm.
+
+        Every money-moving method calls this with the fields it is about to
+        act on, *inside* the stopwatch and before the rail or the kernel is
+        touched. The undefended and kernel arms have nothing to say here —
+        a tool that quietly refused a suspicious payee would be a defence
+        nobody declared, and both of those arms exist to measure what happens
+        without one.
+
+        :class:`GuardedTools` overrides it with
+        :meth:`~agent.provenance.TaintLedger.admit` per field, which is what
+        makes "a merchant value reaching a restricted field is a hard error at
+        the tool boundary, before the kernel" a property of the call rather
+        than of the planner's good behaviour. Inside the stopwatch on purpose:
+        the guard's cost is part of the guarded arm's overhead column, and
+        measuring it outside would publish a defence as free.
+        """
+
     def attempt_ref(self) -> str:
         """This attempt's reference. Attempt one is the run's own ``client_ref``."""
         return self.client_ref if self.attempts <= 1 else f"{self.client_ref}#{self.attempts}"
@@ -214,6 +241,7 @@ class UndefendedTools:
         """
         from kernel.canonical import cart_hash
 
+        self._admit("pay", payee=payee, line_items=line_items or [])
         self.attempts += 1
         ref = self.attempt_ref()
         self._log_call("pay", payee=payee, amount_paise=amount_paise, ref=ref)
@@ -255,6 +283,12 @@ class UndefendedTools:
         nobody declared. The kernel arm overrides this method and the answer
         there is check 5.
         """
+        self._admit(
+            "create_mandate",
+            payee=payee,
+            max_amount=max_amount_paise,
+            recurring=True,
+        )
         self._log_call(
             "create_mandate",
             payee=payee,
@@ -282,6 +316,7 @@ class UndefendedTools:
         checking it here would be a defence nobody declared and the undefended
         number would be measuring it.
         """
+        self._admit("refund", refund_destination=destination)
         self._log_call("refund", payment_id=payment_id, amount_paise=amount_paise)
         return self.world.psp.refund(
             payment_id,
@@ -448,6 +483,7 @@ class KernelTools(UndefendedTools):
         capture arrives. A single fused call would check once and settle later,
         which is the gap the whole lifecycle exists to close.
         """
+        self._admit("pay", payee=payee, line_items=line_items or [])
         self._log_call("pay", payee=payee, amount_paise=amount_paise)
         self._register()
 
@@ -494,6 +530,12 @@ class KernelTools(UndefendedTools):
         past check 5 would fail closed with a 503 rather than mint authority it
         could not record.
         """
+        self._admit(
+            "create_mandate",
+            payee=payee,
+            max_amount=max_amount_paise,
+            recurring=True,
+        )
         self._log_call(
             "create_mandate",
             payee=payee,
@@ -526,6 +568,7 @@ class KernelTools(UndefendedTools):
         ``payment.source_json``. The refund goes back where the debit came from
         because that is the only place the kernel can read a destination from.
         """
+        self._admit("refund", refund_destination=destination)
         self._log_call(
             "refund",
             payment_id=payment_id,
@@ -551,3 +594,213 @@ def _payment_request(body: dict[str, Any]):
     from kernel.models import PaymentRequest
 
     return PaymentRequest.model_validate(body)
+
+
+@dataclass
+class GuardedTools(UndefendedTools):
+    """The same tools, with the field-admission policy switched on.
+
+    Two overrides and nothing else. ``_read`` observes every storefront
+    response as merchant provenance — prose *and* typed data, because a
+    checkout page's typed ``payee`` field is a merchant value however well
+    typed it is, and treating typed merchant content as trustworthy is the
+    assumption class A1 is built on. ``_admit`` puts every named field through
+    :meth:`~agent.provenance.TaintLedger.admit` before the rail is touched.
+
+    The declarations go in from outside, before the first tool call: the
+    planner hands the ledger the task and the signed intent, which is what
+    "control flow fixed before any untrusted byte is read" means for values.
+
+    Money-tool *results* are declared kernel provenance as they come back. A
+    payment id and the source account a debit actually came from are facts
+    about a movement of money, not claims a storefront gets to make — and
+    without that declaration the honest refund path would be refused, because
+    the destination the kernel arm falls back to is exactly that source.
+    """
+
+    taint: Any = None  # agent.provenance.TaintLedger, injected by the agent
+
+    def __post_init__(self) -> None:
+        if self.taint is None:
+            from agent.provenance import TaintLedger
+
+            self.taint = TaintLedger()
+
+    def _read(self, tool: str, response: MerchantResponse, **args: Any) -> ToolResult:
+        result = super()._read(tool, response, **args)
+        self.taint.observe_merchant({"prose": result.prose, "data": result.data})
+        return result
+
+    def _admit(self, call: str, **fields: Any) -> None:
+        for name, value in fields.items():
+            self.taint.admit(name, value)
+
+    @timed("pay")
+    def pay(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        outcome = UndefendedTools.pay.__wrapped__(self, *args, **kwargs)  # type: ignore[attr-defined]
+        self.taint.declare_kernel(outcome)
+        return outcome
+
+    @timed("refund")
+    def refund(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        outcome = UndefendedTools.refund.__wrapped__(self, *args, **kwargs)  # type: ignore[attr-defined]
+        self.taint.declare_kernel(outcome)
+        return outcome
+
+
+@dataclass
+class GuardedKernelTools(KernelTools):
+    """Both defences at once: the agent-side guard *and* the kernel.
+
+    Exists so the table can say what the two cost and catch together, and — more
+    usefully — so the ``kernel`` arm can be exactly what it claims to be. That
+    arm runs the **undefended** agent on purpose: SPEC.md §17.7 says every
+    guarantee has to hold with a fully adversarial agent, and an arm that
+    quietly had a taint guard in it would be publishing the guard's wins as the
+    kernel's. Keeping the combination in its own class is what keeps the two
+    apart.
+
+    The overrides are :class:`GuardedTools`', repeated rather than inherited: a
+    diamond over two dataclasses that both define ``pay`` resolves by MRO in a
+    way a reader has to work out, and this is a file where what runs before the
+    rail is the whole subject.
+    """
+
+    taint: Any = None  # agent.provenance.TaintLedger, injected by the agent
+
+    def __post_init__(self) -> None:
+        if self.taint is None:
+            from agent.provenance import TaintLedger
+
+            self.taint = TaintLedger()
+
+    def _read(self, tool: str, response: MerchantResponse, **args: Any) -> ToolResult:
+        result = super()._read(tool, response, **args)
+        self.taint.observe_merchant({"prose": result.prose, "data": result.data})
+        return result
+
+    def _admit(self, call: str, **fields: Any) -> None:
+        for name, value in fields.items():
+            self.taint.admit(name, value)
+
+    @timed("pay")
+    def pay(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        outcome = KernelTools.pay.__wrapped__(self, *args, **kwargs)  # type: ignore[attr-defined]
+        self.taint.declare_kernel(outcome.get("payment") or {})
+        return outcome
+
+
+@dataclass
+class ScreenedTools(UndefendedTools):
+    """The model-only arm: a guardrail classifier in front of the money tools.
+
+    No kernel, no mandate, no signature, no ledger — see :mod:`agent.guardrail`
+    for what this arm is for. The classifier is consulted at the same boundary
+    the field-admission guard uses and the kernel uses, inside the stopwatch and
+    before the rail, so all three arms' overhead columns measure the same thing.
+
+    A refusal is turned into a **decision with a reason code** rather than an
+    exception that escapes. Two reasons. The planner has to carry on and reach
+    its later steps, exactly as it does when the kernel denies an authorize —
+    an arm that aborted the run on its first block would have a different shape
+    from every other arm and its utility-under-attack column would be measuring
+    the abort. And the false-block column reads ``decisions``: a refusal that
+    left no decision behind is indistinguishable from a crash, and a crash
+    counted as a block would inflate the very number this project insists on
+    printing.
+    """
+
+    screen: Any = None  # agent.guardrail.GuardrailScreen, injected by the runner
+
+    #: Every decision this arm made, in the same shape the kernel arm's
+    #: ``decisions`` have, so one metric function reads both.
+    decisions: list[dict[str, Any]] = field(default_factory=list)
+
+    def _screened(self, call: str, **facts: Any) -> dict[str, Any] | None:
+        """Consult the classifier. ``None`` to proceed, a refusal body to stop."""
+        from agent.guardrail import GuardrailRefusal
+
+        if self.screen is None:
+            return None
+        try:
+            verdict = self.screen.screen(call, self.prose_so_far(), facts)
+        except GuardrailRefusal as refusal:
+            body = {
+                "step": call,
+                "status": 200,
+                "decision": "deny",
+                "reason_code": f"GUARDRAIL_{refusal.category.upper()}",
+                "denied_by": ["guardrail"],
+                "checks": [],
+                "audit_seq": None,
+                "quote": refusal.quote,
+            }
+            self.decisions.append(body)
+            self.world.log.append(
+                SimActor.AGENT,
+                SimEvent.AGENT_TOOL_CALL,
+                {"tool": f"guardrail.{call}", "args": {k: v for k, v in body.items() if k != "quote"}},
+            )
+            return body
+        self.decisions.append(
+            {
+                "step": call,
+                "status": 200,
+                "decision": "allow",
+                "reason_code": "OK",
+                "denied_by": [],
+                "checks": [],
+                "audit_seq": None,
+                "category": verdict.get("category", "clean"),
+            }
+        )
+        return None
+
+    @timed("pay")
+    def pay(
+        self,
+        payee: dict[str, Any],
+        amount_paise: int,
+        currency: str = "INR",
+        line_items: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        refused = self._screened(
+            "pay", payee=payee, amount_paise=amount_paise, line_items=line_items or []
+        )
+        if refused is not None:
+            return refused
+        return UndefendedTools.pay.__wrapped__(  # type: ignore[attr-defined]
+            self, payee, amount_paise, currency, line_items=line_items
+        )
+
+    @timed("create_mandate")
+    def create_mandate(
+        self, payee: dict[str, Any], max_amount_paise: int, frequency: str
+    ) -> dict[str, Any]:
+        refused = self._screened(
+            "create_mandate",
+            payee=payee,
+            max_amount_paise=max_amount_paise,
+            frequency=frequency,
+        )
+        if refused is not None:
+            return refused
+        return UndefendedTools.create_mandate.__wrapped__(  # type: ignore[attr-defined]
+            self, payee, max_amount_paise, frequency
+        )
+
+    @timed("refund")
+    def refund(
+        self, payment_id: str, amount_paise: int, destination: dict[str, Any]
+    ) -> dict[str, Any]:
+        refused = self._screened(
+            "refund",
+            payment_id=payment_id,
+            amount_paise=amount_paise,
+            destination=destination,
+        )
+        if refused is not None:
+            return refused
+        return UndefendedTools.refund.__wrapped__(  # type: ignore[attr-defined]
+            self, payment_id, amount_paise, destination
+        )

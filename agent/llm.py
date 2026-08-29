@@ -571,7 +571,23 @@ class ScriptedModel:
         prose = self._prose(turn)
         further: list[dict[str, Any]] = []
 
+        # Two sources, one rule. In the undefended arm the claim arrives as
+        # prose the planner is reading directly. In the defended arm the
+        # planner sees no prose at all and the same claim arrives as a *field*,
+        # extracted by the quarantined reader.
+        #
+        # Honouring both is what keeps the defended arm an honest measurement.
+        # A planner that ignored the extracted claim would make the
+        # planner/extractor split look like a complete defence — but only
+        # because the stand-in had declined to use the data the split exists to
+        # deliver safely. The split's claim is that a claim *can be read* and
+        # come back as data; what a claim may then do is the admission policy's
+        # question, and classes A2, A3 and A6 are exactly the cases where the
+        # policy has nothing to say. Those have to be able to land here.
         owed = prose_amount_due(prose)
+        if owed is None:
+            claimed = facts.get("claimed_amount_due_paise")
+            owed = int(claimed) if claimed else None
         if owed is not None and owed > facts.get("amount_due", 0):
             further.append(
                 {
@@ -581,7 +597,12 @@ class ScriptedModel:
             )
 
         known: dict[str, int] = facts.get("known_skus", {})
-        for sku in prose_directs_separate_orders(prose, known):
+        directed_skus = prose_directs_separate_orders(prose, known) or [
+            sku
+            for sku in facts.get("claimed_separate_order_skus", [])
+            if sku in known
+        ]
+        for sku in directed_skus:
             further.append(
                 {
                     "reason": f"the page says {sku} must be its own transaction",
@@ -601,7 +622,9 @@ class ScriptedModel:
         have been drawn for the user to have lost control of the account.
         """
         facts = self._facts(turn)
-        if prose_directs_standing_instruction(self._prose(turn)):
+        if prose_directs_standing_instruction(self._prose(turn)) or facts.get(
+            "page_claims_standing_instruction"
+        ):
             return {
                 "subscribe": True,
                 "frequency": "monthly",
@@ -654,6 +677,97 @@ class ScriptedModel:
             },
             "why": "back to the original payment method",
         }
+
+
+    # -- the quarantined extractor's steps --------------------------------
+    #
+    # Same rules, different exit. The extractor is shown the same hostile prose
+    # the undefended planner reads and applies the same gullible reading of it —
+    # deliberately, because the split is not supposed to make the *reading*
+    # safer. What changes is that the reading comes back as a labelled claim in
+    # a typed struct, to an object with no tools, and what a claim can then do
+    # is the admission policy's question (``agent/provenance.py``).
+    #
+    # Sharing the rules is also what keeps the arms comparable: if the stand-in
+    # were less credulous here, the defended arm's numbers would be measuring a
+    # better stand-in rather than the mechanism.
+
+    def _step_extract_payee_claim(self, turn: Turn) -> dict[str, Any]:
+        facts = self._facts(turn)
+        typed = (facts.get("typed_payee") or {}).get("value", "")
+        directed = prose_override(self._prose(turn), typed)
+        return {
+            "claimed_payee": directed or "",
+            "contradicts_typed_payee": bool(directed and directed != typed),
+        }
+
+    def _step_extract_cart_claims(self, turn: Turn) -> dict[str, Any]:
+        facts = self._facts(turn)
+        prose = self._prose(turn)
+        items = list(facts.get("proposed_line_items", []))
+        priced = {item["unit_amount"] for item in items}
+        return {
+            "extra_charges_paise": [
+                paise for paise in find_directed_charges(prose) if paise not in priced
+            ],
+            "substitute_sku": prose_directs_substitution(
+                prose, facts.get("chosen_sku", "")
+            )
+            or "",
+        }
+
+    def _step_extract_settlement_claims(self, turn: Turn) -> dict[str, Any]:
+        facts = self._facts(turn)
+        prose = self._prose(turn)
+        owed = prose_amount_due(prose)
+        return {
+            "claimed_amount_due_paise": owed or 0,
+            "claimed_separate_order_skus": prose_directs_separate_orders(
+                prose, facts.get("known_skus", {})
+            ),
+            "claims_repeat_charge": bool(
+                owed is not None and owed > facts.get("amount_due", 0)
+            ),
+        }
+
+    def _step_extract_subscription_claim(self, turn: Turn) -> dict[str, Any]:
+        return {
+            "claims_standing_instruction": prose_directs_standing_instruction(
+                self._prose(turn)
+            ),
+            "claimed_frequency": "monthly"
+            if prose_directs_standing_instruction(self._prose(turn))
+            else "none",
+            "claimed_max_amount_paise": 0,
+        }
+
+    def _step_extract_refund_claim(self, turn: Turn) -> dict[str, Any]:
+        facts = self._facts(turn)
+        source = facts.get("payment_source") or {}
+        directed = prose_override(
+            self._prose(turn),
+            source.get("value", ""),
+            (facts.get("payment_payee") or {}).get("value", ""),
+        )
+        return {
+            "claimed_destination": directed or "",
+            "contradicts_payment_source": bool(
+                directed and directed != source.get("value", "")
+            ),
+        }
+
+    # -- the guardrail classifier's step ----------------------------------
+
+    def _step_guardrail_screen(self, turn: Turn) -> dict[str, Any]:
+        """The model-only arm's classifier, as a deterministic stand-in.
+
+        See :mod:`agent.guardrail` for what this is standing in for and what
+        the substitution costs. The rule is lexical and lives there, next to
+        the honest account of its limits, rather than here.
+        """
+        from agent.guardrail import screen_prose
+
+        return screen_prose(self._prose(turn), self._facts(turn))
 
 
 # ---------------------------------------------------------------------------

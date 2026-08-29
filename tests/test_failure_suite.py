@@ -324,7 +324,10 @@ def test_f09_a_timeout_after_the_rail_took_the_call_is_recovered_not_retried(
         mandate_id=bench.intent["mandate_id"],
         cart_hash=bench.confirmed_cart["cart_hash"],
         amount_paise=49900,
-        client_ref="ref_bench",
+        # The reference the kernel itself would have written: the recovery
+        # scan polls the rail by exactly this value, and one per cart rather
+        # than one per run is what keeps two different debits two debits.
+        client_ref=bench.service.psp_ref_for(bench.confirmed_cart["cart_hash"]),
     )
 
     assert bench.capture().status == 202  # inside the TTL: ask again

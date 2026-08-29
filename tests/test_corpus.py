@@ -279,7 +279,23 @@ def test_an_opening_without_a_reason_is_refused(sealed):
         corpus.open_batch_b("   ")
 
 
-def test_the_shipped_batch_b_has_never_been_opened():
-    """If this fails, the held-out number in results.md is not a held-out
-    number. It is not a test of code; it is a test of what has been done."""
-    assert corpus.batch_b_openings() == []
+def test_the_shipped_batch_b_has_been_opened_at_most_once_and_never_overridden():
+    """If this fails, the held-out number in ``results.md`` is not a held-out
+    number. It is not a test of code; it is a test of what has been done.
+
+    Zero openings was the assertion until M6 took the headline measurement,
+    which is the one reading batch B exists for. What has to stay true from here
+    is the *rest* of the claim: one opening, no override. An override on the
+    record means somebody read the held-out set a second time — permitted, and
+    logged precisely so that this test can go red when it happens.
+    """
+    openings = corpus.batch_b_openings()
+    assert len(openings) <= 1, (
+        f"batch B has been opened {len(openings)} times: "
+        + "; ".join(f"{e['at']} {e['reason']!r}" for e in openings)
+        + ". results.md may no longer describe its number as held out."
+    )
+    assert not any(e["override"] for e in openings), (
+        "an override is on the record; the second read was deliberate and "
+        "logged, and the headline number is a held-out number only for the first"
+    )

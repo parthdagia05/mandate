@@ -84,6 +84,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Iterable
 from typing import Any, Callable
 
 from kernel.audit.chain import AuditChain, ChainBroken
@@ -229,6 +230,7 @@ class KernelService:
         guard: StoreGuard = no_guard,
         crash: Callable[[str, str], None] | None = None,
         sidecar_path: Path | None = None,
+        disabled_checks: Iterable[int] = (),
     ) -> None:
         self._conn = conn
         self._clock = clock
@@ -253,11 +255,51 @@ class KernelService:
         self._crash_hook = crash or (lambda _site, _action: None)
         self._sidecar_path = sidecar_path
 
+        #: Checks the **ablation** has switched off, by number. Empty in every
+        #: published configuration and in every default construction: this is a
+        #: measurement instrument, not an operational knob.
+        #:
+        #: It removes the *predicate* rather than disturbing the code path —
+        #: the check is simply not in the evaluated list, so the audit
+        #: payload's evaluated prefix shows the checks that did run and
+        #: ``ablated`` names the ones that were removed. That pairing is what
+        #: makes the ablation table readable: "checks 1,3,4,5,6 ran and none
+        #: refused, with 2 ablated" is a different fact from "nothing refused",
+        #: and only the first says which predicate was earning its row.
+        #:
+        #: Recorded in the audit chain on every decision it could have changed.
+        #: A kernel running with a check switched off has to say so in its own
+        #: record, or an ablation run and a real run are indistinguishable
+        #: afterwards — and this is a project whose every claim reduces to
+        #: "the chain says so".
+        self.disabled_checks: frozenset[int] = frozenset(disabled_checks)
+        unknown = self.disabled_checks - set(CHECK_NAMES)
+        if unknown:
+            raise ValueError(
+                f"cannot ablate {sorted(unknown)}; the nine checks are "
+                f"{sorted(CHECK_NAMES)}"
+            )
+
         #: Set once a chain break is detected, and never cleared by the kernel
         #: itself. Everything denies from then on and the run's results are
         #: discarded rather than reported — a number produced by a kernel whose
         #: own record is untrustworthy is worse than no number.
         self.poisoned: str | None = None
+
+    def check_ids(self, action: ActionType) -> tuple[int, ...]:
+        """The checks this action runs, with any ablated ones removed.
+
+        One place, so an ablation cannot reach half the actions. Returning an
+        empty tuple is possible in principle — ablating every check an action
+        runs — and is left possible on purpose: "the kernel with nothing
+        switched on" is the row that proves the arm's ASR is produced by the
+        checks and not by the plumbing around them.
+        """
+        return tuple(
+            check_id
+            for check_id in CHECKS_FOR_ACTION[action]
+            if check_id not in self.disabled_checks
+        )
 
     # -- public API -------------------------------------------------------
 
@@ -333,8 +375,8 @@ class KernelService:
 
         try:
             ctx = self._context(request, ledger=None, registering=True)
-            results = run_checks(ctx, (1,))
-            if results[-1].passed and body.confirmed_cart.confirmed_by != "user":
+            results = run_checks(ctx, () if 1 in self.disabled_checks else (1,))
+            if results and results[-1].passed and body.confirmed_cart.confirmed_by != "user":
                 # A cart the agent confirmed to itself is not a confirmation.
                 results.append(
                     CheckResult.failed(
@@ -345,7 +387,7 @@ class KernelService:
                         confirmed_by=str(body.confirmed_cart.confirmed_by),
                     )
                 )
-            if not results[-1].passed:
+            if results and not results[-1].passed:
                 return self._refuse(request, results, watch, AuditAction.INTENT_REGISTERED)
 
             # One transaction: the nonce, the ledger row and the chain entry
@@ -596,8 +638,14 @@ class KernelService:
             ctx = self._context(request, ledger=row)
 
             # -- 3. run the checks, in order, first failure short-circuits
-            results = run_checks(ctx, CHECKS_FOR_ACTION[action])
-            if results[-1].passed and action == ActionType.REFUND:
+            results = run_checks(ctx, self.check_ids(action))
+            # ``results`` is empty only when every predicate for this action
+            # was ablated. That is a legitimate ablation row — "the kernel with
+            # nothing switched on" — and it falls through to the allow path,
+            # where the payload's ``ablated`` list is what says why nothing
+            # refused. An allow whose record did not say that would be
+            # indistinguishable from an allow the checks agreed with.
+            if results and results[-1].passed and action == ActionType.REFUND and 8 not in self.disabled_checks:
                 original = request.params.original_payment_id
                 payment_row = self.ledger.get_payment(original) if original else None
                 results.append(
@@ -618,7 +666,7 @@ class KernelService:
             return self._fail_closed(request, exc, watch)
 
         # -- 4. any failure: record it, then answer -----------------------
-        if not results[-1].passed:
+        if results and not results[-1].passed:
             return self._refuse(request, results, watch)
 
         if action == ActionType.MANDATE_CREATE:
@@ -653,7 +701,10 @@ class KernelService:
                 mandate_id=request.intent.mandate_id,
                 cart_hash=request.cart.cart_hash,
                 amount_paise=request.params.amount,
-                client_ref=self._client_ref,
+                # The same reference the rail will see, written now: after a
+                # crash there is no request left to derive it from, and the
+                # recovery scan polls the rail by exactly this value.
+                client_ref=self._psp_ref(request),
                 payment_id=request.params.original_payment_id,
             )
         except StoreUnavailable as exc:
@@ -796,15 +847,45 @@ class KernelService:
 
     # -- the PSP boundary -------------------------------------------------
 
+    def psp_ref_for(self, cart_hash: str) -> str:
+        """This cart's reference on the rail. Public because the recovery scan's
+        contract is "poll by the reference that was written at reserve time",
+        and a test that has to reconstruct that string from the private shape
+        of the key is a test pinned to an implementation detail."""
+        return f"{self._client_ref}:{cart_hash[7:23]}"
+
+    def _psp_ref(self, request: PaymentRequest) -> str:
+        """This request's reference on the rail. One per *cart*, not per run.
+
+        A real client issues a fresh reference per checkout attempt, and the
+        rail deduplicates on it. A kernel that sent one reference for a whole
+        session would have the rail return the first payment for every
+        subsequent debit — which looks, from the ledger, exactly like a defence.
+
+        That is not a hypothetical. Classes A5 and A6 are *several debits*, and
+        with a per-run reference the second and third collapse at the rail
+        before the kernel's own answer is visible. The kernel would then be
+        credited with stopping an attack the harness had quietly made
+        unreachable: the same failure S-02 exists to catch, one layer down.
+
+        Derived from the cart hash rather than a counter, so it is a function
+        of what is being bought and stays reproducible from the seed. Two
+        requests for the *same* cart share a reference on purpose — that is the
+        business key, and the rail deduplicating there is correct behaviour that
+        check 7 has already answered for.
+        """
+        return self.psp_ref_for(request.cart.cart_hash)
+
     def _call_psp(self, request: PaymentRequest, action: ActionType) -> dict[str, Any]:
         cart = request.cart
-        idem = f"{self._client_ref}:{action}"
+        ref = self._psp_ref(request)
+        idem = f"{ref}:{action}"
 
         if action == ActionType.AUTHORIZE:
             order = self._psp.create_order(
                 request.params.amount,
                 cart.currency,
-                self._client_ref,
+                ref,
                 payee=cart.payee,
                 # The rail records what the debit is for, in both arms. An
                 # oracle that could only read a cart hash off the undefended
@@ -1034,6 +1115,11 @@ class KernelService:
             "reason_code": str(reason),
             "denied_by": [r.id for r in results if not r.passed],
         }
+        if self.disabled_checks:
+            # Only present when something is switched off, so a published run's
+            # chain is byte-identical to what it was before the ablation existed
+            # and two runs of one seed still agree. Its presence *is* the flag.
+            payload["ablated"] = sorted(self.disabled_checks)
         if key is not None:
             payload["idempotency_key"] = key
         return payload

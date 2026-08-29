@@ -272,6 +272,62 @@ rate, and the overhead columns.
 **Cut rule** — the gate at the start of 2 Sep: no real undefended number by that evening
 means cutting to four classes (A1, A2, A3, A6) and shipping those properly.
 
+**Status: done, no cut taken.** The gate passed on the first run: undefended ASR on batch
+A is **80.0% [71.4–86.5], 84 of 105**, and all seven classes land. `results.md` carries
+the batch B table, the ablation, the false-block rate and the overhead columns.
+`mk matrix`, `mk ablate` and `mk report` produce it, and `mk report` reads the JSONL back
+off disk so the table is reproducible by somebody who did not run the suites.
+
+Five things were decided during the build, and each was a fork with a
+worse-looking-but-more-honest branch.
+
+**Five arms, not three.** The spec asks for three and `results.md` publishes three side by
+side. But P-07 and P-08 — the planner/quarantined-extractor split and the field-admission
+policy — cannot be folded into the `kernel` arm without publishing the agent-side guard's
+wins as the kernel's, and §17.7 says every guarantee has to hold with a fully adversarial
+agent. So `kernel` runs the **undefended** agent, and `agent-guard` and
+`kernel+agent-guard` are separate columns. That makes "every attack flow also runs with
+the agent-side taint guard removed" not an extra experiment but the definition of the
+headline arm.
+
+**The agent-side guard stops four classes out of seven, and the table says so.** A1, A4,
+A5 and A7 are values arriving from the wrong place, and provenance sees them. A2, A3 and
+A6 are not: an inflated price is a shop quoting a price, a substituted SKU is a shop
+saying what it sells, and a second charge for one cart is not a value from anywhere.
+Publishing 4/7 for the mechanism usually presented as *the* answer to prompt injection is
+the most useful row in the document, and it is the argument for the kernel being the
+contribution.
+
+**Single-check ablation was nearly empty, and the fix was a second question.** The checks
+overlap on purpose — a redirected payee changes the cart's hash, so check 4 refuses A1
+even with check 2 removed — so "turn off one check and watch the matching class rise"
+moved exactly one row. That is a true statement about *necessity given the others* and a
+false impression about *value*. The ablation now asks both: one check off, and only one
+check on, against a floor row with every predicate removed. Every check that earns a row
+earns it visibly, and the three that do not (1, 5, 8) are printed with the reason rather
+than omitted.
+
+**The ablation's floor row found a real defect.** With every predicate off, A5 and A6
+still scored zero — and the reason was that the kernel sent one PSP reference for a whole
+run, so a second debit for a different cart came back as the first one. The rail was
+collapsing the attack before the kernel's own answer was visible, and the kernel was
+being credited for it. The reference is now derived per cart
+(`KernelService.psp_ref_for`). This is exactly the failure S-02 exists to catch, one
+layer down. The un-ablated numbers did not move: A5 is genuinely refused by checks 3 and
+4, A6 by check 7, and the chain shows `authorize.replayed` and `capture.replayed`.
+
+**The false-block rate is 12.0% [4.2–30.0], three of twenty-five**, all
+`AMOUNT_EXCEEDS_SCOPE` on benign tasks priced above the shipped intent's per-transaction
+cap, each named in `results.md`. The guardrail arm's is zero, and the document says a zero
+is a finding about the benign suite rather than a perfect score, with the interval printed
+beside it.
+
+**What is still owed to M7.** Every number above comes from the deterministic stand-in;
+`results.md` says so in a block quote above the first table and beside every model-only
+figure. The live-model measurement, `scripts/reproduce.sh` and the recorded cassettes are
+M7's, and the containment allowance for `api.anthropic.com` is already built and recorded
+per run so the containment statement stays checkable when they arrive.
+
 ---
 
 ## M7 — The telling (4–5 Sep)

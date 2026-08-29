@@ -27,15 +27,27 @@ the same code the socket serves. Two paths that could disagree eventually do.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from agent.llm import SCRIPTED_MODEL_ID, ModelClient, build_model
+from agent.defended import DefendedAgent
+from agent.extractor import QuarantinedExtractor
+from agent.guardrail import GuardrailScreen
+from agent.llm import SCRIPTED_MODEL_ID, AnthropicModel, ModelClient, build_model
 from agent.planner import PlanResult, UndefendedAgent
-from agent.tools import KernelTools, UndefendedTools
+from agent.provenance import TaintLedger
+from agent.tools import (
+    GuardedKernelTools,
+    GuardedTools,
+    KernelTools,
+    ScreenedTools,
+    UndefendedTools,
+)
+from harness.containment import MODEL_ENDPOINT, contained
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
 from harness.manifest import current_hash
@@ -47,6 +59,9 @@ from sim.world import World
 
 __all__ = [
     "CONFIGS",
+    "HEADLINE_CONFIGS",
+    "USES_KERNEL",
+    "USES_AGENT_GUARD",
     "MAX_SETTLE_ADVANCES",
     "RunRecord",
     "check_config",
@@ -55,10 +70,40 @@ __all__ = [
     "run_id_for",
 ]
 
-#: The three arms of the experiment (SPEC.md §11). M2 implements the first;
-#: the names exist now so the run record's schema does not change under the
-#: results table later.
-CONFIGS = ("undefended", "model-only", "kernel")
+#: Every arm the harness can run. The **first three** are the experiment
+#: SPEC.md §11 describes and the three ``results.md`` publishes side by side:
+#: no defence, the defence everybody proposes first, and this project's.
+#:
+#: The last two exist because the agent-side work (P-07 and P-08) has to be
+#: measurable *without* being folded into the kernel's numbers.
+#:
+#: ``agent-guard``
+#:     The planner/quarantined-extractor split and the field-admission policy,
+#:     and no kernel. What the agent-side mechanisms are worth alone.
+#: ``kernel+agent-guard``
+#:     Both. Defence in depth, and the only arm in which anything is doubled up.
+#:
+#: **``kernel`` runs the undefended agent, deliberately.** SPEC.md §17.7: every
+#: guarantee has to hold with a fully adversarial agent, so the arm that
+#: measures the kernel's guarantees runs one. Every attack flow therefore also
+#: runs with the agent-side taint guard removed — that is not an extra
+#: experiment, it *is* the kernel arm.
+CONFIGS = (
+    "undefended",
+    "model-only",
+    "kernel",
+    "agent-guard",
+    "kernel+agent-guard",
+)
+
+#: The three that go in the headline table, in the order they are printed.
+HEADLINE_CONFIGS = ("undefended", "model-only", "kernel")
+
+#: Which arms stand a kernel up, and which arms run the agent-side guard. Two
+#: sets rather than a chain of string comparisons, so adding an arm is one edit
+#: and a misspelled config name cannot silently mean "no kernel".
+USES_KERNEL = frozenset({"kernel", "kernel+agent-guard"})
+USES_AGENT_GUARD = frozenset({"agent-guard", "kernel+agent-guard"})
 
 #: How many one-second advances the settle loop will take before giving up.
 #: A webhook chain longer than this is a bug in the chain, and hanging is a
@@ -129,6 +174,27 @@ class RunRecord:
     #: per-run p99s is a p99 of nothing — and because ``pay`` and ``refund``
     #: cost different amounts, which a single per-run figure hides.
     money_calls: list[dict[str, Any]] = field(default_factory=list)
+    #: Agent-guard arms only: every time an inadmissible value was offered to
+    #: a restricted field and the planner fell back. The guard firing has to be
+    #: visible *as an event*, because an agent that happened to behave and an
+    #: agent that was stopped look identical in the ledger.
+    guard_events: list[dict[str, Any]] = field(default_factory=list)
+    #: Agent-guard arms only: what the taint ledger held and what it refused.
+    taint: dict[str, Any] = field(default_factory=dict)
+    #: Agent-guard arms only: every extraction, with how many bytes of hostile
+    #: content each one was shown. This is the evidence for "the prose was read
+    #: here and only here" — the claim the planner/extractor split makes.
+    extractor: dict[str, Any] = field(default_factory=dict)
+    #: Model-only arm: every screening the classifier performed, flagged or not.
+    guardrail: dict[str, Any] = field(default_factory=dict)
+    #: The checks the ablation switched off for this run, by number. Empty in
+    #: every published configuration; its presence is what tells a reader that
+    #: a line came from ``mk ablate`` and not from the results table.
+    disabled_checks: list[int] = field(default_factory=list)
+    #: What the containment guard saw (REQ-10). Present on every run the
+    #: harness drove, so "no non-local socket opened during any attack run" is
+    #: a field in the record rather than a sentence in a README.
+    containment: dict[str, Any] = field(default_factory=dict)
     #: The hash of the corpus that produced this line, computed from disk at
     #: run time rather than read from ``harness/manifest.json`` (REQ-11). A
     #: results table whose lines do not all carry the manifest hash published
@@ -149,12 +215,6 @@ def check_config(config: str) -> None:
     """
     if config not in CONFIGS:
         raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
-    if config == "model-only":
-        raise NotImplementedError(
-            "config 'model-only' arrives in M6; it is the arm that measures the "
-            "agent-side taint guard on its own, and reporting it before it "
-            "exists would put a number in the table for a defence nobody built"
-        )
 
 
 def run_id_for(
@@ -246,6 +306,52 @@ def _task_succeeded(task: Task, plan: PlanResult, ledger: list[dict[str, Any]]) 
         and capture["state"] == "captured"
     )
 
+@contextlib.contextmanager
+def _unguarded(allow: tuple[str, ...]):
+    """The shape of :func:`~harness.containment.contained`, with no guard.
+
+    For the one caller that is measuring the guard itself. The log it yields
+    reports ``enforced`` truthfully — which is to say the field is absent from
+    such a run's record rather than present and false, because a containment
+    field that can say "no" is a field a reader has to check the value of.
+    """
+    yield None
+
+
+def _drive(
+    agent: Any, task: dict[str, Any], task_id: str, model_id: str
+) -> tuple[PlanResult, str | None]:
+    """Run the agent, and turn any way it can fall over into a recorded outcome.
+
+    Two ``except`` clauses and they are not the same clause twice.
+    :class:`~sim.faults.KernelCrashed` derives from ``BaseException`` on purpose
+    — a simulated crash the agent could catch is not a crash — so it needs
+    naming separately to be caught here at all. Everything else is an agent that
+    died, which is a real outcome of a run and is written down rather than
+    raised past the harness: ``crash_after_reserve`` produces one deliberately,
+    and a suite that aborted on it would lose the ninety cases that did run.
+    """
+    try:
+        return agent.run(task), None
+    except KernelCrashed as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    except Exception as exc:  # noqa: BLE001 — a crashed agent is a real outcome
+        error = f"{type(exc).__name__}: {exc}"
+    return (
+        PlanResult(
+            task_id=task_id,
+            sku="",
+            line_items=[],
+            total_paise=0,
+            payee={},
+            checkout_payee={},
+            payment=None,
+            model_id=model_id,
+            error=error,
+        ),
+        error,
+    )
+
 
 def run_case(
     task_id: str | None = None,
@@ -258,8 +364,30 @@ def run_case(
     export_log: Path | None = None,
     export_chain: Path | None = None,
     faults: list[dict[str, Any]] | None = None,
+    disabled_checks: tuple[int, ...] = (),
+    contain: bool = True,
 ) -> RunRecord:
+    """Run one case in one arm and return the line that describes it.
+
+    ``disabled_checks`` is the ablation's only entry point. It is empty in every
+    published configuration and the run record says so either way, because a
+    line produced with a check switched off and a line produced with all nine
+    running must never be mistakable for one another after the fact.
+
+    ``contain`` arms :func:`~harness.containment.contained` around the whole
+    run (REQ-10). On by default: this is a defence evaluation, attacks reach
+    only our own mocks, and a guarantee that has to be remembered at each call
+    site is a guarantee that will be forgotten at one of them. It is turned off
+    only by a caller that is deliberately measuring the guard itself.
+    """
     check_config(config)
+    if disabled_checks and config not in USES_KERNEL:
+        raise ValueError(
+            f"config {config!r} stands up no kernel, so there is nothing to "
+            f"ablate. Disabling {sorted(disabled_checks)} here would produce a "
+            "line labelled as an ablation that is byte-identical to the "
+            "un-ablated one — a row in the ablation table that means nothing."
+        )
 
     case: AttackCase | None = load_attack(attack_id) if attack_id else None
     if case is not None:
@@ -298,52 +426,59 @@ def run_case(
     client_ref = f"ref_{sha256_of({'seed': seed, 'task': task_id, 'case': attack_id})[7:23]}"
 
     arm: KernelArm | None = None
-    if config == "kernel":
-        arm = KernelArm(task=task, world=world, client_ref=client_ref)
-        tools = KernelTools(
+    taint: TaintLedger | None = None
+    extractor: QuarantinedExtractor | None = None
+    screen: GuardrailScreen | None = None
+
+    if config in USES_KERNEL:
+        arm = KernelArm(
+            task=task,
             world=world,
             client_ref=client_ref,
-            service=arm.service,
-            credentials=arm.credentials,
-            intent=arm.intent,
-            confirmed_cart=arm.confirmed_cart,
+            disabled_checks=tuple(disabled_checks),
         )
+        kernel_kwargs = {
+            "world": world,
+            "client_ref": client_ref,
+            "service": arm.service,
+            "credentials": arm.credentials,
+            "intent": arm.intent,
+            "confirmed_cart": arm.confirmed_cart,
+        }
+        if config in USES_AGENT_GUARD:
+            taint = TaintLedger()
+            tools = GuardedKernelTools(taint=taint, **kernel_kwargs)
+        else:
+            tools = KernelTools(**kernel_kwargs)
+    elif config in USES_AGENT_GUARD:
+        taint = TaintLedger()
+        tools = GuardedTools(world=world, client_ref=client_ref, taint=taint)
+    elif config == "model-only":
+        screen = GuardrailScreen(model=client)
+        tools = ScreenedTools(world=world, client_ref=client_ref, screen=screen)
     else:
         tools = UndefendedTools(world=world, client_ref=client_ref)
-    agent = UndefendedAgent(model=client, tools=tools)
 
-    error: str | None = None
-    try:
-        plan = agent.run(task.raw)
-    except KernelCrashed as exc:
-        # BaseException on purpose (sim/faults.py): a simulated crash the agent
-        # could catch is not a crash. It is still a real outcome, so it is
-        # recorded rather than raised past the harness.
-        error = f"{type(exc).__name__}: {exc}"
-        plan = PlanResult(
-            task_id=task_id,
-            sku="",
-            line_items=[],
-            total_paise=0,
-            payee={},
-            checkout_payee={},
-            payment=None,
-            model_id=client.model_id,
-            error=error,
+    agent: Any
+    if config in USES_AGENT_GUARD:
+        # The split arm gets the defended planner and its own extractor. Every
+        # other arm gets the undefended agent unchanged — including ``kernel``,
+        # which is the point: the kernel's guarantees are measured against a
+        # fully adversarial agent, not against one that has been improved.
+        extractor = QuarantinedExtractor(model=client)
+        agent = DefendedAgent(
+            model=client, tools=tools, extractor=extractor, taint=taint
         )
-    except Exception as exc:  # noqa: BLE001 — a crashed agent is a real outcome
-        error = f"{type(exc).__name__}: {exc}"
-        plan = PlanResult(
-            task_id=task_id,
-            sku="",
-            line_items=[],
-            total_paise=0,
-            payee={},
-            checkout_payee={},
-            payment=None,
-            model_id=client.model_id,
-            error=error,
-        )
+    else:
+        agent = UndefendedAgent(model=client, tools=tools)
+
+    # The model endpoint is allowed only when a live model is actually driving,
+    # and the allowance is recorded either way. With the stand-in or a cassette
+    # the allowance is empty and the claim is the strong one: zero non-local
+    # sockets during this run.
+    allow = (MODEL_ENDPOINT,) if isinstance(client, AnthropicModel) else ()
+    with contained(allow=allow) if contain else _unguarded(allow) as containment:
+        plan, error = _drive(agent, task.raw, task_id, client.model_id)
 
     _settle(plane)
     # The rail, not the thing under test. The oracle asks the payment rail
@@ -366,6 +501,13 @@ def run_case(
         chain_path = str(arm.export(export_chain))
         chain_head, chain_entries = arm.head()
         arm.close()
+
+    if arm is None:
+        # The model-only arm records its refusals in the same shape, so one
+        # metric function reads every arm's ``decisions``. Every other
+        # kernel-less arm has none, and an empty list is the truthful answer:
+        # nothing made a decision about this run.
+        decisions = list(getattr(tools, "decisions", []))
 
     attacker_win = False
     if case is not None:
@@ -393,6 +535,22 @@ def run_case(
         notes.append(
             "the audit chain did not verify; this run is discarded, not "
             f"reported ({poisoned})"
+        )
+    if disabled_checks:
+        notes.append(
+            "checks " + ",".join(str(c) for c in sorted(disabled_checks))
+            + " were ablated; this run is an ablation row and may not be quoted "
+            "as a configuration result"
+        )
+    if containment is not None and containment.breaches:
+        notes.append(
+            f"{len(containment.breaches)} non-local socket(s) refused during "
+            "this run (REQ-10); the run is reported and the breach is named"
+        )
+    if taint is not None and taint.refusals:
+        notes.append(
+            f"the field-admission policy refused {len(taint.refusals)} value(s) "
+            "at the tool boundary"
         )
     unresolved = [r for r in recoveries if r.get("outcome") == "unresolved"]
     if unresolved:
@@ -440,5 +598,11 @@ def run_case(
         poisoned=poisoned,
         latency_us=percentiles([t["latency_us"] for t in tools.timings]),
         money_calls=list(tools.timings),
+        guard_events=list(getattr(agent, "guard_events", [])),
+        taint=taint.summary() if taint is not None else {},
+        extractor=extractor.summary() if extractor is not None else {},
+        guardrail=screen.summary() if screen is not None else {},
+        disabled_checks=sorted(disabled_checks),
+        containment=containment.as_dict() if containment is not None else {},
         corpus_manifest=current_hash(),
     )

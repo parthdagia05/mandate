@@ -86,6 +86,9 @@ class KernelArm:
     task: Task
     world: World
     client_ref: str
+    #: Checks the ablation has switched off, by number. Empty in every
+    #: published configuration; ``mk ablate`` is the only caller that sets it.
+    disabled_checks: tuple[int, ...] = ()
 
     service: KernelService = field(init=False)
     credentials: AgentCredentials = field(init=False)
@@ -128,6 +131,7 @@ class KernelArm:
             guard=self._store_guard,
             crash=self._crash,
             sidecar_path=self._tmp / "audit_gap.jsonl",
+            disabled_checks=self.disabled_checks,
         )
 
         for kind in ("payment.authorized", "payment.captured"):
