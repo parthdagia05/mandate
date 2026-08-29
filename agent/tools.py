@@ -18,15 +18,56 @@ measuring it instead of measuring nothing.
 
 from __future__ import annotations
 
+import functools
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from kernel.latency import Stopwatch
 from kernel.models import Account
 from sim.eventlog import SimActor, SimEvent
 from sim.merchants.base import MerchantResponse
 from sim.world import World
 
-__all__ = ["ToolResult", "UndefendedTools", "KernelTools"]
+__all__ = ["ToolResult", "UndefendedTools", "KernelTools", "timed"]
+
+
+def timed(call: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Measure one money-moving tool call, at the tool boundary.
+
+    **Both arms are measured at the same place**, which is the only reason the
+    overhead column means anything. SPEC.md §11 asks for "added latency per
+    money-moving call", and *added* is a subtraction: the kernel arm's
+    distribution minus the undefended arm's. A subtraction between two things
+    measured at different boundaries — the kernel's own ``latency_us`` on one
+    side and nothing at all on the other — would report the cost of the rail as
+    if it were the cost of the defence. So the stopwatch goes around the whole
+    tool call in both classes, rail included, and the difference is what the
+    kernel added.
+
+    Recorded on a normal return only. A call that died mid-flight (a
+    ``crash_after_reserve`` fault raises through here) has no duration worth
+    quoting, and a truncated sample in the distribution would drag the kernel
+    arm's percentiles down on exactly the runs it behaved worst on.
+
+    The duration reaches the run record and nothing else. It never enters the
+    event log or the audit chain: two runs of one seed produce byte-identical
+    logs and chains, and a microsecond count is the fastest way to lose that.
+    ``kernel/latency.py`` states the same rule for the kernel's own responses,
+    and ``tests/test_determinism.py`` enforces it.
+    """
+
+    def decorate(method: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(method)
+        def wrapper(self: "UndefendedTools", *args: Any, **kwargs: Any) -> Any:
+            watch = Stopwatch()
+            result = method(self, *args, **kwargs)
+            self.timings.append({"call": call, "latency_us": watch.micros()})
+            return result
+
+        return wrapper
+
+    return decorate
 
 
 @dataclass
@@ -76,6 +117,17 @@ class UndefendedTools:
     #: Every debit this run produced, in order, as the rail reported it. The
     #: planner reads it back when deciding whether anything is still owed.
     settled: list[dict[str, Any]] = field(default_factory=list)
+
+    #: One entry per completed money-moving tool call: ``{"call", "latency_us"}``,
+    #: in call order. See :func:`timed`. The run record turns these into its
+    #: ``latency_us`` percentiles and ``results.md`` subtracts one arm's
+    #: distribution from the other's.
+    #:
+    #: A *denied* kernel call lands here too, and is much cheaper than an
+    #: allowed one because the rail is never reached. That is why the overhead
+    #: column is quoted from the benign suite, where both arms allow every
+    #: call and the two distributions are measuring the same work.
+    timings: list[dict[str, Any]] = field(default_factory=list)
 
     def attempt_ref(self) -> str:
         """This attempt's reference. Attempt one is the run's own ``client_ref``."""
@@ -134,6 +186,7 @@ class UndefendedTools:
 
     # -- money ------------------------------------------------------------
 
+    @timed("pay")
     def pay(
         self,
         payee: dict[str, Any],
@@ -190,6 +243,7 @@ class UndefendedTools:
         self.settled.append(self.last_payment)
         return self.last_payment
 
+    @timed("create_mandate")
     def create_mandate(
         self, payee: dict[str, Any], max_amount_paise: int, frequency: str
     ) -> dict[str, Any]:
@@ -215,6 +269,7 @@ class UndefendedTools:
             idem=f"{self.client_ref}:mandate",
         ).view()
 
+    @timed("refund")
     def refund(
         self, payment_id: str, amount_paise: int, destination: dict[str, Any]
     ) -> dict[str, Any]:
@@ -361,7 +416,13 @@ class KernelTools(UndefendedTools):
             "checks": body.get("checks", []),
             "audit_seq": (body.get("audit") or {}).get("seq"),
         }
-        self.decisions.append(entry)
+        # The kernel timed its own decision and put the figure in the response
+        # (SPEC.md §07). It goes to the run record, where it says which of the
+        # three or four decisions inside one ``pay`` the time was spent in —
+        # something the tool-boundary stopwatch cannot see. It is added *after*
+        # ``entry`` is built, and deliberately so: the copy below reaches the
+        # event log, and the log is exported and compared byte for byte.
+        self.decisions.append({**entry, "latency_us": int(body.get("latency_us") or 0)})
         # The event log gets ids and a reason code, never mandate bytes and
         # never a signature: the log is exported and compared byte for byte.
         self.world.log.append(
@@ -371,6 +432,7 @@ class KernelTools(UndefendedTools):
         )
         return body
 
+    @timed("pay")
     def pay(
         self,
         payee: dict[str, Any],
@@ -412,6 +474,7 @@ class KernelTools(UndefendedTools):
         self.last_payment = captured.get("payment") or {}
         return captured
 
+    @timed("create_mandate")
     def create_mandate(
         self, payee: dict[str, Any], max_amount_paise: int, frequency: str
     ) -> dict[str, Any]:
@@ -442,6 +505,7 @@ class KernelTools(UndefendedTools):
         body = self._request("mandate.create", cart, max_amount_paise)
         return self._record("mandate.create", self.service.mandate_create(_payment_request(body)))
 
+    @timed("refund")
     def refund(
         self, payment_id: str, amount_paise: int, destination: dict[str, Any]
     ) -> dict[str, Any]:
