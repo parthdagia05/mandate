@@ -120,6 +120,28 @@ class Merchant:
         )
         return MerchantResponse(point=point, text=body, data=dict(data or {}))
 
+    # -- what the agent knows about the catalogue -------------------------
+    #
+    # Not an injection point and not a storefront call: this is the shopping
+    # agent's own list of what the shop sells, the way a person browsing knows
+    # roughly what is on the shelves. It is separate from ``search_catalog``
+    # because that call returns *prose* and this one returns the typed facts a
+    # planner needs to name a SKU at all.
+    #
+    # It lives on the merchant rather than being imported from one storefront's
+    # module because there is now more than one storefront, and a planner that
+    # imported ``shopkart.CATALOGUE`` would see an empty candidate list against
+    # any other shop — which is a run with no purchase in it, scored as a
+    # defended one.
+
+    def catalogue_names(self) -> dict[str, str]:
+        """``sku -> product name`` for everything this shop sells."""
+        raise NotImplementedError
+
+    def catalogue_prices(self) -> dict[str, int]:
+        """``sku -> unit amount in paise`` for everything this shop sells."""
+        raise NotImplementedError
+
     # -- the storefront API the agent's tools call ------------------------
 
     def search_catalog(self, query: str) -> MerchantResponse:

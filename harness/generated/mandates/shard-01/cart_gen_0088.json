@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00XFFTZGH4ZNXBFEV8",
+  "parent": "im_01KDVDNA00N5EMV7F6285E8GKH",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-BRAEBYT5-V65Y",
+      "qty": 1,
+      "unit_amount": 129900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 133900,
+  "currency": "INR",
+  "cart_hash": "sha256:f8c95281309372c5a6b51812910b876bccf856c3237d11efc35016cc817ed8bf",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "LrPIM54boeGVNYUbRJcP4T7nWNRHCaDE4NqRlkFrwML-GR0SXkxXnB-d5rQdb61bTGG5-YuVpJaOfO8RrgHi0A"
+}

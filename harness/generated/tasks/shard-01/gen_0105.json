@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 87000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-CBKEAHJX-G59Z",
+      "unit_amount": 47000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CAGE68FFZ2ZWZVHQ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0105.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0105.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "engage jump and jump",
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-CAGE68FF-Z2ZW",
+  "task_id": "gen-0105",
+  "utterance": "Get me the Engage Jump and Jump Combo Set on GenMart, delivery included, and pay GenMart.",
+  "wants": "engage jump and jump combo set"
+}

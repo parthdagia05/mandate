@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA0087A4MH7M5R9A3XHC",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "VXwpgNcfmWNctZ9lEY5Ifw",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:92ccefcf27e8558dfb72323333c2bc981ab637e4b5f873d82fce0dc183899c6b",
+  "scope": {
+    "max_amount": 600000,
+    "per_txn_cap": 150000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "genmart@upi"
+      }
+    ],
+    "allowed_categories": [
+      "shipping",
+      "sports"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "j7QpT57J6RUxEQbHRvC-FziVWGMzOgGvvrQxAWyc2C6VJYLJsHlLBuHcWuI_GreH7mrKq-vOril5Lc_hO4s0BQ"
+}

@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA00MZJ0Z0JQ0XZ02PRB",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "SEJcc_gZYQXH_SPStGNNkA",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:2509973a4afb5511c0983301dee5923f39ea173196520ec75529515b8265c277",
+  "scope": {
+    "max_amount": 1000000,
+    "per_txn_cap": 250000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "genmart@upi"
+      }
+    ],
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "gVylqKAS6lW2EwEeHuyqeKRhYXyDl1KMur_d7nFEAGl75qb1grbEfTb-t1qorilHzJIlDEK8oiw67JPoZ4W3sQ"
+}

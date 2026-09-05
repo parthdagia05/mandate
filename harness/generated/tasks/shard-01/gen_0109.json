@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 198800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-CBKEJ3AN-6GEA",
+      "unit_amount": 149800
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CAGE92ZXMD5BG34Y"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0109.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0109.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "layer'r classic wottagirl (set",
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-CAGE92ZX-MD5B",
+  "task_id": "gen-0109",
+  "utterance": "Buy me the Layer'r Classic Wottagirl (Set Of 2)-Romance, Heaven Combo Set on GenMart with delivery. The payee is GenMart.",
+  "wants": "layer'r classic wottagirl (set of 2)-romance, heaven combo set"
+}

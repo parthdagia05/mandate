@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00RQEFC2XV89VEDGHJ",
+  "parent": "im_01KDVDNA00J8HY0Q5N4QEZ00V6",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-ACCEGYPF-35GB",
+      "qty": 1,
+      "unit_amount": 89900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 93900,
+  "currency": "INR",
+  "cart_hash": "sha256:dc51df734c95a7ded253151287b476215a025e5d540052f5c611009276f8d459",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "Jvdb4MXDuZN74VpQorr33LZM38Yl1tsx-jnOOMOwUNJWo8DLkJGJ9tU2OsI14ZXGpg7Ar1UeCO6n4yDseIOhaQ"
+}

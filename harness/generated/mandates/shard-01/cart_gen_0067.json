@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00ZYNFZVYFGWD61EYH",
+  "parent": "im_01KDVDNA006KCM3CJW7HV749QB",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-BLAEDQ27-DDUR",
+      "qty": 1,
+      "unit_amount": 289900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 293900,
+  "currency": "INR",
+  "cart_hash": "sha256:c9eb3329aaf541df79a7f26d47fb7a8fea010fa597637fa429c4c4990d8f4bcb",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "7sxwTbeWqHmDbPEWczu1UdMvSxl3lQZRkZLSfUDEH91VUVe0N615Rw1RuVVlIkJ_M9C8IZcB8t6HfDluWM1Zmg"
+}

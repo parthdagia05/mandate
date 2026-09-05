@@ -1,0 +1,131 @@
+{
+  "attacks": {
+    "base64_every": 8,
+    "batches": {
+      "gen-a": {
+        "carriers_that_named_their_own_class": 2,
+        "cases": 735,
+        "per_class": {
+          "A1": 105,
+          "A2": 105,
+          "A3": 105,
+          "A4": 105,
+          "A5": 105,
+          "A6": 105,
+          "A7": 105
+        },
+        "per_technique": {
+          "base64": 86,
+          "formatting": 50,
+          "non_english": 43,
+          "semantic_persuasion": 556
+        }
+      },
+      "gen-b": {
+        "carriers_that_named_their_own_class": 2,
+        "cases": 735,
+        "per_class": {
+          "A1": 105,
+          "A2": 105,
+          "A3": 105,
+          "A4": 105,
+          "A5": 105,
+          "A6": 105,
+          "A7": 105
+        },
+        "per_technique": {
+          "base64": 87,
+          "formatting": 50,
+          "non_english": 36,
+          "semantic_persuasion": 562
+        }
+      }
+    },
+    "carriers_used": 1470,
+    "dropped": {},
+    "per_class": 105
+  },
+  "carriers": {
+    "admitted": 4055,
+    "attack_rows": 6868,
+    "carriers_naming_a_rail_goal": 4,
+    "carriers_naming_no_rail_goal": 4051,
+    "drop_rate_of_attack_rows": 0.409581,
+    "dropped": {
+      "carrier_too_long": 1586,
+      "carrier_too_short": 237,
+      "duplicate_text": 990
+    },
+    "dropped_total": 2813,
+    "goal_named": {
+      "A5": 4,
+      "none": 4051
+    },
+    "rows_read": 43564,
+    "technique": {
+      "formatting": 100,
+      "non_english": 79,
+      "semantic_persuasion": 3876
+    }
+  },
+  "catalogue": {
+    "admitted": 19546,
+    "categories": {
+      "automotive": 1396,
+      "clothing": 8232,
+      "electronics": 1837,
+      "home": 2533,
+      "jewellery": 3522,
+      "personal_care": 1221,
+      "sports": 166,
+      "stationery": 639
+    },
+    "drop_rate": 0.0227,
+    "dropped": {
+      "category_outside_vocabulary": 341,
+      "description_too_short": 2,
+      "duplicate_sku": 3,
+      "price_above_ceiling": 30,
+      "price_below_floor": 3,
+      "unparseable_price": 75
+    },
+    "dropped_total": 454,
+    "rows_read": 20000
+  },
+  "datasets": {
+    "injection_corpus": "sha256:eec887f5663a60658b06ec059580f716b0eca06077755c74911ebc081883ab61",
+    "injection_corpus_2": "sha256:ec422bc87eb50a7faed6e33c67aa5683834bebe519362d304e280e0a53053c14",
+    "retail_catalogue": "sha256:8da249f46f436c78293796672f95c3d423a01606c57b87f2ab7cc1d5eb243f42"
+  },
+  "generated_at": "2026-09-05T09:25:15Z",
+  "generator_version": "p8.1",
+  "seed": "p8",
+  "storefront": {
+    "caps": {
+      "automotive": 500000,
+      "clothing": 250000,
+      "electronics": 400000,
+      "home": 400000,
+      "jewellery": 3550000,
+      "personal_care": 300000,
+      "sports": 150000,
+      "stationery": 250000
+    },
+    "products": 1200,
+    "target_size": 1200
+  },
+  "tasks": {
+    "above_cap": 70,
+    "above_cap_fraction": 0.166667,
+    "dropped": {
+      "search_does_not_find_own_sku": 4,
+      "utterance_matches_more_than_one_product": 58
+    },
+    "target": 420,
+    "tasks": 420,
+    "with_all_three": 70,
+    "with_offers": 210,
+    "with_refund": 175,
+    "with_settlement_check": 210
+  }
+}

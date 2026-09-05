@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00XRJH85QJAPYR1MP3",
+  "parent": "im_01KDVDNA001DR2FB20FS0PBB6P",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SHOE7ZK8-M2Q4",
+      "qty": 1,
+      "unit_amount": 150000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 154000,
+  "currency": "INR",
+  "cart_hash": "sha256:fa04a4b0a6052166571f6eba7ab96cdcaf932e4377571d17e0b9ac0629cb2fd2",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "5S_TuHIh3e2Cf2NYyjI9qbNJPNpPlZMiyhbEt8KGQ9dcEiqSEZqIp44k-zVbvgJXfxMvRX4eiS3dv8L82lDpVA"
+}

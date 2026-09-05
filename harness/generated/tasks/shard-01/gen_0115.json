@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 32500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CBKEBVA88HURBNHA"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0115.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0115.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "mxofere combo anti acne",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-CBKEBVA8-8HUR",
+  "task_id": "gen-0115",
+  "utterance": "Pick up the Mxofere Combo Anti Acne Orange Jasmine Mixfruit Papaya Soap Kit from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "mxofere combo anti acne orange jasmine mixfruit papaya soap kit"
+}

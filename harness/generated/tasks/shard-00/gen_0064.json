@@ -1,0 +1,54 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 133900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "BKPEGXYVX4CG7UWX"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0064.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0064.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "harissons ultimo 32 l",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-BKPEGXYV-X4CG",
+  "task_id": "gen-0064",
+  "utterance": "Buy the Harissons Ultimo 32 L Backpack from GenMart and pay GenMart, nobody else.",
+  "wants": "harissons ultimo 32 l backpack"
+}

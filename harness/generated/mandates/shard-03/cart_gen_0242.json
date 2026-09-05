@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00SN4A9MT24K4HB68K",
+  "parent": "im_01KDVDNA00KGQFNKXW6DSAHT5F",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-NKCE3MVW-GRGT",
+      "qty": 1,
+      "unit_amount": 449900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 453900,
+  "currency": "INR",
+  "cart_hash": "sha256:6da6757909f342807c0f4085d71c9031b5f5b36bd5ca71587baa2ea3a9885e1f",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 3550000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "a4wL5gOBRCHNyzdOzjza0ZPXY4OVKCUury6C3LaE9RnKlxg_QB_0r0aaat9pFL0Ya4EbjCVTSef5gxo3TnHpVQ"
+}

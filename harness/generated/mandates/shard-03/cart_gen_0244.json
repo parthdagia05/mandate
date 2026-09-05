@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA006CK28HA2F0DRB18A",
+  "parent": "im_01KDVDNA00N91MPGF66V4AJZXK",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-NKCE52CS-ZEWS",
+      "qty": 1,
+      "unit_amount": 28000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 32000,
+  "currency": "INR",
+  "cart_hash": "sha256:f1ee791f6e0d8ccee802848c05278f37f514cfa6f464d7ea1d75e6e761775eda",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 3550000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "HAXrt1uD_kJ2Z7NgbQycf60svdDb3efOzKGMjyqvPxnM8zzfUhsMzPjqMkNxocs-bY10JPqkIgLlBnav0QUErA"
+}

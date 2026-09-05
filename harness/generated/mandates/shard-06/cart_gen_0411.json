@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00RR87W49A7KJ8M42M",
+  "parent": "im_01KDVDNA00P1XE9NBX0832QQ9V",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SKIECYAE-ESPN",
+      "qty": 1,
+      "unit_amount": 94900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 98900,
+  "currency": "INR",
+  "cart_hash": "sha256:e35f7e73173fa643a99f44daa001c41d46fd206ee04871f549a8a7056ca5d1fe",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "fSrzj5qWc3ScNqtAarTp-9Mmk6VxdD03SO1vsrhwSYOKhppkECKvFKo0McQap2cmWSq-vGuqr0ho-tfJ3Yy3Yg"
+}

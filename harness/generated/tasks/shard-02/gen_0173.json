@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 579000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-PELEGPGC-DR7T",
+      "unit_amount": 35000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "ERGEACGZNRUEHHWE"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0173.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0173.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "h e creations west",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ERGEACGZ-NRUE",
+  "task_id": "gen-0173",
+  "utterance": "Please buy the H E Creations West Bay White Gold Cubic Zirconia Brass Drop Earring from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "h e creations west bay white gold cubic zirconia brass drop earring"
+}

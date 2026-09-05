@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "BNGEB467ZXZZ4HWS"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0072.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0072.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "true bong",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-BNGEB467-ZXZZ",
+  "task_id": "gen-0072",
+  "utterance": "Buy me the TRUE Bong on GenMart with delivery. The payee is GenMart.",
+  "wants": "true bong"
+}

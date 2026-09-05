@@ -1,0 +1,15 @@
+{
+  "batches": {
+    "gen-a": {
+      "cases": 735
+    },
+    "gen-b": {
+      "cases": 735
+    }
+  },
+  "generated_at": "2026-09-05T09:25:15Z",
+  "generator_version": "p8.1",
+  "note": "gen-b is held out under the same single-open guard batch B has. Opening it is logged in harness/attacks/openings.jsonl and a second opening is logged as an override. Counts here were taken at generation time, before the freeze.",
+  "per_class": 105,
+  "seed": "p8"
+}

@@ -328,7 +328,7 @@ def test_batch_b_stays_sealed(tmp_path):
     A suite runner that opened it on the caller's behalf would make "opened
     once" untrue in the one place it is load-bearing.
     """
-    with pytest.raises(RuntimeError, match="open_batch_b"):
+    with pytest.raises(RuntimeError, match="open_batch"):
         run_suite(
             [SuiteCase(task_id="benign-01", attack_id="A1-b-05")],
             dataset="batch_b",
@@ -341,7 +341,7 @@ def test_batch_b_stays_sealed(tmp_path):
 
 def test_a_moved_corpus_refuses_to_start(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        suite_module, "verify_manifest", lambda: ("sha256:old", ["changed: A1-a-05.json"])
+        suite_module, "verify_all", lambda: ["changed: A1-a-05.json"]
     )
     with pytest.raises(RuntimeError, match="A1-a-05.json"):
         _suite(tmp_path, select("batch_a", attack_class="A1")[:1])
@@ -354,9 +354,9 @@ def test_a_corpus_that_moves_mid_suite_is_reported_not_published(tmp_path, monke
 
     def drifting():
         calls["n"] += 1
-        return ("sha256:x", [] if calls["n"] == 1 else ["changed: benign_01.json"])
+        return [] if calls["n"] == 1 else ["changed: benign_01.json"]
 
-    monkeypatch.setattr(suite_module, "verify_manifest", drifting)
+    monkeypatch.setattr(suite_module, "verify_all", drifting)
     result = _suite(tmp_path, select("batch_a", attack_class="A1")[:1])
 
     assert result.corpus_drift == ["changed: benign_01.json"]

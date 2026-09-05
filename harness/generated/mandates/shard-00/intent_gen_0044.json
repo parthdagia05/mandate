@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA00S8JNV1ZRJ0YQKFFN",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "iGYIzslj44A1Z9sKaB4dig",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:307662f89902876ee0bec5de0a907f023300b5c56a44c199e9392e1ea2cca128",
+  "scope": {
+    "max_amount": 14200000,
+    "per_txn_cap": 3550000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "genmart@upi"
+      }
+    ],
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "BE7dQYsL8gx_IvqVJy87RnU_aICjtLiNV5PNwY0QNqs6ZRnAksYKTU0O01dzEuPBHXQNKuQSliB4prXkPl5pUw"
+}

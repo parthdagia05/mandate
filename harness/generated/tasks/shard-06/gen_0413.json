@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 338900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SKTE5NGP-GYSJ",
+      "unit_amount": 235000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "sports",
+    "per_txn_cap": 150000,
+    "source_pid": "SMTEJTY2HXQDCVG5"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-06/cart_gen_0413.json",
+    "intent": "harness/generated/mandates/shard-06/intent_gen_0413.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "stable life soft &",
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "sports"
+    ],
+    "currency": "INR",
+    "max_amount": 600000,
+    "max_transactions": 3,
+    "per_txn_cap": 150000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SMTEJTY2-HXQD",
+  "task_id": "gen-0413",
+  "utterance": "Buy me the Stable Life Soft & Sturdy10 Yoga, Exercise & Gym Green 4 mm on GenMart with delivery. The payee is GenMart.",
+  "wants": "stable life soft & sturdy10 yoga, exercise & gym green 4 mm"
+}

@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 133900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCE8XZMDYUKF8SG"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0015.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0015.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "kanu book cover for",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-ACCE8XZM-DYUK",
+  "task_id": "gen-0015",
+  "utterance": "Order the Kanu Book Cover for Asus K008 7 inch from GenMart. Pay GenMart, nobody else.",
+  "wants": "kanu book cover for asus k008 7 inch"
+}

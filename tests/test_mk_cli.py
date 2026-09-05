@@ -142,3 +142,107 @@ def test_report_rebuilds_the_same_document_from_the_files(tmp_path):
         ]
 
     assert stable(first.read_text()) == stable(second.read_text())
+
+
+# --- P8: generate, shard, merge, kaggle -----------------------------------
+
+
+def test_the_dataset_choices_match_the_datasets_the_suite_knows():
+    """The same duplication, and the same reason: ``mk`` imports lazily."""
+    from harness.suite import DATASETS
+
+    assert mk.DATASET_CHOICES == DATASETS
+
+
+def test_every_p8_command_is_reachable_from_the_parser():
+    parser = mk.build_parser()
+    for argv in (
+        ["merge", "a.jsonl"],
+        ["generate", "corpus", "--force"],
+        ["kaggle", "datasets"],
+        ["kaggle", "push"],
+        ["kaggle", "status"],
+        ["kaggle", "pull"],
+        ["report-generated", "runs/p8/merged"],
+        ["suite", "--dataset", "gen_a", "--shard", "3/8"],
+    ):
+        args = parser.parse_args(argv)
+        assert callable(args.func), argv
+
+
+def test_a_malformed_shard_is_refused_before_a_file_is_opened(tmp_path, capsys):
+    """A partially written JSONL is a worse way to learn the flag was wrong."""
+    out = tmp_path / "never.jsonl"
+    code = mk.main(
+        ["suite", "--dataset", "gen_a", "--shard", "0/8", "--out", str(out), "--quiet"]
+    )
+    assert code == 2
+    assert not out.exists()
+    assert "numbered from 1" in capsys.readouterr().err
+
+
+def test_a_sealed_dataset_without_a_reason_is_refused_before_anything_runs(
+    tmp_path, capsys, monkeypatch
+):
+    """Opening a held-out batch is a decision with a log entry, not a side
+    effect of running a suite."""
+    import harness.corpus as corpus
+
+    monkeypatch.setattr(corpus, "OPENINGS_LOG", tmp_path / "openings.jsonl")
+    monkeypatch.setattr(corpus, "_OPEN", set())
+    out = tmp_path / "never.jsonl"
+    code = mk.main(
+        ["suite", "--dataset", "gen_b", "--config", "kernel", "--out", str(out), "--quiet"]
+    )
+    assert code == 2
+    assert not out.exists()
+    assert "--reason" in capsys.readouterr().err
+
+
+def test_joining_cannot_be_the_first_read_of_a_sealed_batch(
+    tmp_path, capsys, monkeypatch
+):
+    import harness.corpus as corpus
+
+    monkeypatch.setattr(corpus, "OPENINGS_LOG", tmp_path / "openings.jsonl")
+    monkeypatch.setattr(corpus, "_OPEN", set())
+    code = mk.main(
+        [
+            "suite",
+            "--dataset",
+            "gen_b",
+            "--config",
+            "kernel",
+            "--join",
+            "--out",
+            str(tmp_path / "never.jsonl"),
+            "--quiet",
+        ]
+    )
+    assert code == 2
+    assert "never been opened" in capsys.readouterr().err
+
+
+def test_mk_corpus_verify_reports_both_corpora(capsys):
+    from harness.manifest import current_hash, generated_corpus_exists, generated_hash
+
+    assert mk.main(["corpus", "verify"]) == 0
+    out = capsys.readouterr().out
+    assert "hand-written corpus" in out
+    assert current_hash() in out
+    if generated_corpus_exists():
+        assert "generated corpus" in out
+        assert generated_hash() in out
+        assert "dataset   retail_catalogue" in out
+
+
+def test_generate_refuses_without_force(capfd):
+    """Regenerating re-signs every mandate and moves the corpus hash, and every
+    generated table that quoted the old one goes stale.
+
+    ``capfd`` rather than ``capsys``: ``mk generate`` is a thin wrapper over
+    ``scripts/generate_corpus.py`` in a subprocess, deliberately, so the
+    ``--force`` guard is the same guard whichever way generation is reached.
+    """
+    assert mk.main(["generate", "corpus"]) != 0
+    assert "Refusing to regenerate without --force" in capfd.readouterr().err

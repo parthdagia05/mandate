@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 93900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "DREEGWW9DMTGZDZZ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0167.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0167.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "yoshana girl's gathered pink",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-DREEGWW9-DMTG",
+  "task_id": "gen-0167",
+  "utterance": "I want the Yoshana Girl's Gathered Pink Dress from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "yoshana girl's gathered pink dress"
+}

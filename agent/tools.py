@@ -175,6 +175,22 @@ class UndefendedTools:
 
     # -- storefront -------------------------------------------------------
 
+    # -- the catalogue the agent is shopping ------------------------------
+    #
+    # Not a storefront *call*: no injection point, no event, no timing. It is
+    # the shopping agent's own knowledge of what the shop sells, and it is read
+    # through the merchant rather than imported from one storefront's module
+    # because there is more than one storefront now. A planner holding a
+    # hard-coded catalogue would see no candidates at any other shop, buy
+    # nothing, and produce a clean run — which reads in the results table
+    # exactly like a defended one.
+
+    def known_products(self) -> dict[str, str]:
+        return self.world.merchant.catalogue_names()
+
+    def known_prices(self) -> dict[str, int]:
+        return self.world.merchant.catalogue_prices()
+
     def search_catalog(self, query: str) -> ToolResult:
         return self._read(
             "search_catalog", self.world.merchant.search_catalog(query), query=query

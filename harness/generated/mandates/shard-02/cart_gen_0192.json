@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00T5MW6XZGTG2X59X3",
+  "parent": "im_01KDVDNA008A52KZA6QJT33JVK",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-INKEF3T7-F2S9",
+      "qty": 1,
+      "unit_amount": 349900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 353900,
+  "currency": "INR",
+  "cart_hash": "sha256:7da50f24cd77032c16dbbfce06273b360813918032d95df96e5335550a462461",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "-Kn_ejEZl7j0E6e8HI-kCVGN0b5f3jqVcXTLd7s6KqEjXvAxAqGAlDCG_IRq1EcBj-_nVPct2yj11oP_IbAPUQ"
+}

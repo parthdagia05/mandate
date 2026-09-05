@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "BRAE3P8YB385MSKN"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0074.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0074.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "younky fashion women's full",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-BRAE3P8Y-B385",
+  "task_id": "gen-0074",
+  "utterance": "Buy me the Younky Fashion Women's Full Coverage Bra on GenMart with delivery. The payee is GenMart.",
+  "wants": "younky fashion women's full coverage bra"
+}

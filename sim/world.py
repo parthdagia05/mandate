@@ -21,6 +21,7 @@ from kernel.rng import RunRandom
 from sim.eventlog import EventLog, SimActor, SimEvent
 from sim.faults import Fault, FaultInjector
 from sim.merchants.base import Injection, Merchant
+from sim.merchants.generated import GeneratedStore
 from sim.merchants.shopkart import ShopKart
 from sim.psp.adapter import SimPSP
 from sim.webhooks import WebhookScheduler
@@ -30,7 +31,17 @@ __all__ = ["World", "MERCHANTS"]
 #: Storefronts a task can name. Closed, for the same reason the injection
 #: points are: a task naming a merchant that does not exist should fail to
 #: load, not run against a default one.
-MERCHANTS: dict[str, type[Merchant]] = {"shopkart": ShopKart}
+#:
+#: ``genmart`` is the generated storefront (P8): the same eight injection
+#: points, built from a pinned retail catalogue so the benign half of the
+#: corpus carries real prices. It is registered under an explicit name rather
+#: than replacing ``shopkart``, because the hand-written corpus's published
+#: numbers were measured against ``shopkart`` and a storefront swapped out
+#: underneath them would invalidate every one of those tables silently.
+MERCHANTS: dict[str, type[Merchant]] = {
+    "shopkart": ShopKart,
+    "genmart": GeneratedStore,
+}
 
 
 @dataclass

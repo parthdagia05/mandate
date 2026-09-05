@@ -1,0 +1,36 @@
+{
+  "mandate_id": "cm_01KDVDNA00171X5R9H40BM6CY0",
+  "parent": "im_01KDVDNA00Y062388QF0HZBZJ0",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SHOEFRUP-FECA",
+      "qty": 1,
+      "unit_amount": 349900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-TOPE3NVY-HZNA",
+      "unit_amount": 84500
+    }
+  ],
+  "total_amount": 438400,
+  "currency": "INR",
+  "cart_hash": "sha256:d96f7c230e5bd55cb1a72aa2c15b16cc47ac010b6d997433da85462ebaf7ed57",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "ZddbdX9D4NvlvUCqh9uIkPIfHeSA87LZpTiGEX4F-lKVsDtMIgV7Xl-R45cKx5amlHOb8rZ-YsTDWBjf2wjqRQ"
+}

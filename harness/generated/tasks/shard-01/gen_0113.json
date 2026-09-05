@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 303400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-DREECHUG-PVDQ",
+      "unit_amount": 199500
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "CAPEDVMZBGHQWV9Z"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0113.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0113.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "lowe alpine face cap",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-CAPEDVMZ-BGHQ",
+  "task_id": "gen-0113",
+  "utterance": "Order the Lowe Alpine Face Cap from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "lowe alpine face cap"
+}

@@ -12,7 +12,7 @@ actually said. The kernel is the contribution; the harness is the evidence.
 
 ## Status
 
-**M1 through M6 are complete.**
+**M1 through M6 are complete, and P8 — the scale-out — is in.**
 
 M1 is the spine: schemas, canonicalisation, signing fixtures, the clock, the
 audit chain and the standalone verifier. Nothing in it moves money, and
@@ -103,6 +103,26 @@ predicate removed, which is what shows that three classes are not stopped by a
 check at all — A4 by the kernel refusing to mint authority it cannot record, A6
 by the idempotency reservation, A7 by there being no destination field on the
 wire.
+
+P8 is the answer to the one sentence `results.md` kept having to write about
+itself: every interval was wide because *n* was 15 per class. Two Kaggle
+datasets fix that — a retail catalogue for the benign half, two injection
+corpora for the payloads — and the generated corpus is 420 benign tasks and 735
+cases per batch against the hand-written 25 and 105. **Nothing about the kernel
+changes**: the same nine checks, the same seven oracles, the same seed rule. The
+generated tables sit *beside* the hand-written ones in `results.md`, never over
+them, because they are a weaker claim in four ways the document lists.
+
+The generator is the new thing that can lie, so every step of it is pinned:
+datasets by slug **and version** and verified by digest before a row is read, a
+manifest of its own covering the dataset digests, the generator version, the
+seed and per-shard hashes, and every row it refused counted by reason and
+published. The most interesting of those counts is this one: **4051 of 4055
+admitted carriers name none of the seven payment decisions.** A published
+injection corpus is attack text written against chatbots, and it contains almost
+no instruction to pay anybody — which is why a generated payload is a carrier
+taken verbatim from the corpus plus one directive line written by the generator,
+and why the document says so beside every generated table.
 
 ## Setup
 
@@ -244,6 +264,87 @@ python3 mk.py ablate --dataset batch_a --model scripted --out runs/m6-ablate
 python3 mk.py report runs/m6 --ablation runs/m6-ablate --out results.md
 ```
 
+## The generated corpus, and running it in shards
+
+Two Kaggle datasets in, one frozen corpus out. The datasets are public and are
+not committed — they belong to their publishers — so a fresh clone pulls them
+and the pins refuse anything that is not what the corpus was built from.
+
+```bash
+# Pull the pinned datasets and check them against harness/datasets.json.
+# Prints the slug, the version, the licence, the row count and the digest.
+python3 mk.py kaggle datasets --pull
+
+# Build the corpus: a storefront from the catalogue, 420 benign tasks under a
+# declared cap policy, 735 cases in each of gen-a and gen-b, one signed intent
+# and one signed cart per task, sharded, then frozen into one hash.
+# --force because signing is not deterministic: a rebuild is a new corpus.
+python3 mk.py generate corpus --force
+
+# Both corpora, counted, with every dataset digest and every shard.
+python3 mk.py corpus verify
+```
+
+`mk suite --shard i/n` runs one contiguous block of the frozen corpus order, so
+shard 3 of 8 is always the same cases. Shards are separate **processes** by
+design — SQLite has a single writer and the overhead column must not become a
+measurement of lock contention — and `mk merge` puts them back together:
+
+```bash
+for i in 1 2 3 4; do
+  python3 mk.py suite --dataset gen_a --config kernel --shard $i/4 \
+    --out runs/p8/gen_a.kernel.${i}of4.jsonl &
+done; wait
+
+# Refuses a merge across two corpora, a merge with a shard missing, and a
+# merge with a case in it twice. Percentiles are pooled over the pooled calls
+# and the intervals are recomputed on the pooled n.
+python3 mk.py merge runs/p8/gen_a.kernel.*of4.jsonl \
+  --out runs/p8/merged/gen_a.kernel.jsonl
+
+# Splice the generated section into results.md. Needs no matrix: the
+# hand-written tables were measured under a corpus hash and a batch B opening
+# that both still stand, and re-rendering the document to add a section would
+# mean spending a held-out measurement on formatting.
+python3 mk.py report-generated runs/p8/merged
+```
+
+`gen-b` is held out under the same guard batch B has. The first read needs
+`--reason` and is logged; the shards of that run pass `--join`, which cannot be
+the first read and is logged as a join — so "opened once, joined by four
+shards" is what the log says and what `results.md` reports.
+
+## On Kaggle, with the internet off
+
+`kaggle/` holds a committed notebook and its `kernel-metadata.json`: dataset
+attachments pinned by version, `enable_internet: false`, CPU. **Internet
+disabled is the point rather than a constraint** — the deterministic stand-in
+needs no network, so the containment claim from a hosted run is the strong one:
+zero non-local sockets, asserted by the platform as well as by the guard, which
+the notebook arms anyway and ships in its output.
+
+```bash
+# Preflight. Five rows, and nothing uploads until they pass: the CLI, its
+# version, credentials, both metadata files naming one owner, and an
+# authenticated call that works.
+python3 mk.py kaggle check
+
+# Once: the repository itself, as the dataset the notebook attaches. A staged
+# copy built from an explicit include list — data/ is other people's datasets
+# and runs/ is the output this is meant to produce, so neither can go along.
+python3 mk.py kaggle repo --stage-only          # ~5.8 MB, 3204 files
+python3 mk.py kaggle repo --message "P8 corpus"
+
+python3 mk.py kaggle push               # the committed notebook, not a browser
+python3 mk.py kaggle status             # non-zero until it says complete
+python3 mk.py kaggle pull --shards 8    # refuses a partial output, checks digests
+python3 mk.py merge runs/kaggle/*.jsonl
+```
+
+`kaggle/README.md` has the setup, and says why a model arm — which needs the
+internet on and one narrow allowance for the endpoint — is a different claim
+that must not share a table with this one.
+
 Each run writes `runs/<suite_id>.jsonl` — one line per case — and a
 `.meta.json` beside it with the counts, the corpus hash and the machine that
 took the measurement. The CPU is recorded because the overhead column is the
@@ -272,6 +373,48 @@ Every line quotes the hash taken at the start, so an edit made *while* a suite
 was running would be invisible to the lines themselves; the check at the end is
 what turns "the corpus did not change" from an assumption into a refusal to
 publish.
+
+## Prove it — P8
+
+```sh
+# 1. The datasets, pinned by slug AND version, with licence and digest.
+#    A changed byte fails here rather than producing a corpus nobody can
+#    re-derive.
+python3 mk.py kaggle datasets
+#    retail_catalogue     PromptCloudHQ/flipkart-products@v1   CC BY-SA 4.0  ok
+#    injection_corpus     krishnayadav456wrsty/...@v3          MIT           ok
+#    injection_corpus_2   shreyashautomation/...@v1            MIT           ok
+
+# 2. Both corpora, and both manifests. The hand-written hash has not moved —
+#    which is the point of giving the generated corpus one of its own.
+python3 mk.py corpus verify
+#    manifest  sha256:f87e67de...  (unchanged)
+#    generated sha256:47065d5f...  (unchanged)
+
+# 3. Edit one byte inside one shard of 735 cases and it fails by shard, then
+#    names the files in it.
+python3 -m pytest tests/test_generated_manifest.py -q
+
+# 4. The gate, taken first for the same reason it was in M6: if the attacks do
+#    not land against an undefended agent there is nothing to defend.
+#    undefended gen-a: 88.3% [85.8-90.4] (649/735), every class above 80%.
+#    kernel:           0.0%  [0.0-0.5]   (0/735)
+python3 -m pytest tests/test_p8_gate.py -q
+
+# 5. Sharding and the merge, including the three merges it refuses.
+python3 -m pytest tests/test_shard.py tests/test_merge.py -q
+
+# 6. The hosted run, as artefacts: internet off, datasets attached by version,
+#    the notebook committed, credentials never read.
+python3 -m pytest tests/test_kaggle.py -q
+```
+
+The number worth reading twice is not the ASR. It is **4051 of 4055**: the
+share of admitted carriers from two published injection corpora that name none
+of the seven payment decisions a shopping agent makes. That is what "a payload
+set nobody wrote against this rail" means as a measurement, and it is why the
+generated corpus is a weaker artefact than the hand-written one rather than a
+bigger version of it.
 
 ## Prove it — M2
 

@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 303900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "SNDE23CRFRSREHNJ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-06/cart_gen_0414.json",
+    "intent": "harness/generated/mandates/shard-06/intent_gen_0414.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "zori trendy women flats",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SNDE23CR-FRSR",
+  "task_id": "gen-0414",
+  "utterance": "Buy the Zori Trendy Women Flats from GenMart and pay GenMart, nobody else.",
+  "wants": "zori trendy women flats"
+}

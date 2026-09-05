@@ -1,0 +1,36 @@
+{
+  "mandate_id": "cm_01KDVDNA00M3C9YGJ9FMBYQZ8M",
+  "parent": "im_01KDVDNA007C2XV01C1WPAV468",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-PCSEBZQ5-GMBX",
+      "qty": 1,
+      "unit_amount": 49000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-CRTECUWZ-C4AE",
+      "unit_amount": 369900
+    }
+  ],
+  "total_amount": 422900,
+  "currency": "INR",
+  "cart_hash": "sha256:154ee98c8bfe3e587f95df5263726b5b5e3444e29d016ce691aac1b8f2f727af",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 500000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "DtIq3gkjUaPhEAca1qXfvplhT84YjzXbEeZXjmDnRcty2Y3w91k5jVUZPVcytf47TJXAT66v-CvXzHB-WGuq_g"
+}

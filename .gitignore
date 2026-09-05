@@ -8,3 +8,7 @@ runs/
 *.db
 *.db-wal
 *.db-shm
+
+# P8: pulled Kaggle datasets. Pinned by digest in harness/datasets.json; the
+# bytes belong to their publishers and are re-pulled, never committed.
+data/

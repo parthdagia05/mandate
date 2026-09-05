@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 233900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "PEBEBG4ZY2C7QBGY"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0299.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0299.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "petshop7 ps7bed000408 m pet",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-PEBEBG4Z-Y2C7",
+  "task_id": "gen-0299",
+  "utterance": "Buy me the Petshop7 PS7BED000408 M Pet Bed on GenMart with delivery. The payee is GenMart.",
+  "wants": "petshop7 ps7bed000408 m pet bed"
+}

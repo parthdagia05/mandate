@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 163900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "DREE9CPNYFZP9HRA"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0159.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0159.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "sbuys women's gathered dress",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-DREE9CPN-YFZP",
+  "task_id": "gen-0159",
+  "utterance": "Pick up the Sbuys Women's Gathered Dress from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "sbuys women's gathered dress"
+}

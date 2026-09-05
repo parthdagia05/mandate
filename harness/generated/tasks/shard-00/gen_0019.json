@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 83900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCEDGBH5D5HBCBH"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0019.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0019.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "fastway book cover for",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-ACCEDGBH-5D5H",
+  "task_id": "gen-0019",
+  "utterance": "Order the Fastway Book Cover for Micromax Canvas Tab P690 8GB 3G Calling Tablet from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "fastway book cover for micromax canvas tab p690 8gb 3g calling tablet"
+}

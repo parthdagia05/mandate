@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "SHTEBG8FZJFYB9DR"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-06/cart_gen_0398.json",
+    "intent": "harness/generated/mandates/shard-06/intent_gen_0398.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "orange plum women's floral",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SHTEBG8F-ZJFY",
+  "task_id": "gen-0398",
+  "utterance": "I want the Orange Plum Women's Floral Print Casual Shirt from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "orange plum women's floral print casual shirt"
+}

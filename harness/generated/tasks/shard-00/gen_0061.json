@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 501900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-STIE7KFG-GPCK",
+      "unit_amount": 108000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "BEOEGXRWE4NDBJNV"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0061.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0061.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "allin exporters cumin seed",
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-BEOEGXRW-E4ND",
+  "task_id": "gen-0061",
+  "utterance": "Pick up the Allin Exporters Cumin Seed Oil (Co2 Extract) from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "allin exporters cumin seed oil (co2 extract)"
+}

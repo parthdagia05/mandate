@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 41900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCEAY3RB7HNGZNM"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0262.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0262.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "frabjous alloy necklace",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-NKCEAY3R-B7HN",
+  "task_id": "gen-0262",
+  "utterance": "Get me the Frabjous Alloy Necklace on GenMart, delivery included, and pay GenMart.",
+  "wants": "frabjous alloy necklace"
+}

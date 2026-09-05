@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 1924500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGEDAKBZPHKHGCQ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0332.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0332.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "radiant bay elementary yellow",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-RNGEDAKB-ZPHK",
+  "task_id": "gen-0332",
+  "utterance": "Order the Radiant Bay Elementary Yellow Gold Diamond 14 K Ring from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "radiant bay elementary yellow gold diamond 14 k ring"
+}

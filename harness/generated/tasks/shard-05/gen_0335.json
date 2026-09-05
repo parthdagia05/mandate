@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 5003900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGEDNFEZJCFGG86"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0335.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0335.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "whitegems mia band gold",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-RNGEDNFE-ZJCF",
+  "task_id": "gen-0335",
+  "utterance": "Order the WhiteGems Mia Band Gold Diamond 18 K Ring from GenMart. Pay GenMart, nobody else.",
+  "wants": "whitegems mia band gold diamond 18 k ring"
+}

@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 44000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCEAFM7SFBNX7H5"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0259.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0259.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "village handicrafts rose gold",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NKCEAFM7-SFBN",
+  "task_id": "gen-0259",
+  "utterance": "Get me the Village Handicrafts Rose Gold Plated Acrylic, Glass, Metal Necklace on GenMart, delivery included, and pay GenMart.",
+  "wants": "village handicrafts rose gold plated acrylic, glass, metal necklace"
+}

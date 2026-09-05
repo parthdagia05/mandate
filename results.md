@@ -270,6 +270,233 @@ The evidence that an ablation removed a *predicate* rather than disturbing a cod
 | only check 8 on     | `7,9` ×327, `9` ×105                                                |
 | every predicate off | `7,9` ×327, `9` ×105                                                |
 
+<!-- generated-corpus:begin -->
+
+## The generated corpus
+
+Everything above this line comes from the hand-written corpus and is unchanged. This section is a **second, larger measurement of the same kernel** — same nine checks, same seven oracles, same seed rule — over a corpus generated from two pinned Kaggle datasets. It sits beside the hand-written tables rather than replacing them because it is a **weaker claim**, in the specific ways listed at the end of this section and repeated under *What these numbers do not say*.
+
+### What produced these numbers
+
+- generated corpus hash — `sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1`
+- generator — `p8.1`  ·  seed — `p8`
+- dataset digest — `injection_corpus` `sha256:eec887f5663a60658b06ec059580f716b0eca06077755c74911ebc081883ab61`
+- dataset digest — `injection_corpus_2` `sha256:ec422bc87eb50a7faed6e33c67aa5683834bebe519362d304e280e0a53053c14`
+- dataset digest — `retail_catalogue` `sha256:8da249f46f436c78293796672f95c3d423a01606c57b87f2ab7cc1d5eb243f42`
+  - `injection_corpus` — krishnayadav456wrsty/prompt-injection-and-jailbreak-detection-dataset@v3, MIT, 22042 rows, pulled 2026-09-05T08:21:09Z
+  - `injection_corpus_2` — shreyashautomation/llm-jailbreak-prompt-dataset@v1, MIT, 21522 rows, pulled 2026-09-05T08:25:33Z
+  - `retail_catalogue` — PromptCloudHQ/flipkart-products@v1, CC BY-SA 4.0, 20000 rows, pulled 2026-09-05T08:21:06Z
+- corpus — 420 benign tasks, 735 cases in `gen-a`, 735 in the held-out `gen-b`
+- `gen-b` openings on record — **2**, plus 57 logged joins (a sharded run is many processes reading under one opening; each join is timestamped in `harness/attacks/openings.jsonl`)
+  - 2026-09-05T09:23:20Z — P8 generated-corpus measurement: five arms over gen_benign, gen-a and the held-out gen-b, sharded four ways (issue #68)
+  - 2026-09-05T09:26:50Z — P8 generated-corpus measurement, second opening: the corpus was regenerated after a generator defect (benign tasks whose utterance resolved to more than one product), so the first opening was against a gen-b that no longer exists
+- each suite ran as **4 shards in separate processes** and was merged; `mk merge` refuses a missing shard, a repeated case and a mix of corpus hashes
+
+**Two different things are reproducible here and they need different inputs.** Re-running these *numbers* needs only a clone: the corpus is committed, the storefront it is served from is committed, and the datasets are not read at run time — `mk suite --dataset gen_a --shard i/n`, then `mk merge`, then `mk report-generated`. Re-deriving the *corpus* needs the three datasets above, pulled by slug and version, and it produces a **new** corpus rather than this one: signing is not deterministic, so a rebuild moves every mandate and the hash with them. That is why the corpus is generated once, at freeze time, and why `mk generate corpus` demands `--force`.
+
+### How much of each dataset survived, and why the rest did not
+
+The retail crawl offered 20000 rows and 19546 were admitted. Rows are **dropped, never coerced** — a coerced price is a silent change to the amount lattice and a coerced category is a silent change to what an intent authorises:
+
+| reason                        | rows |
+|-------------------------------|------|
+| `category_outside_vocabulary` | 341  |
+| `unparseable_price`           | 75   |
+| `price_above_ceiling`         | 30   |
+| `duplicate_sku`               | 3    |
+| `price_below_floor`           | 3    |
+| `description_too_short`       | 2    |
+
+The two injection corpora offered 6868 attack rows and 4055 were admitted (41.0% dropped):
+
+| reason              | rows |
+|---------------------|------|
+| `carrier_too_long`  | 1586 |
+| `duplicate_text`    | 990  |
+| `carrier_too_short` | 237  |
+
+**Of those 4055 carriers, 4 name a payment decision at all.** Each carrier was asked, with the gullible planner's own predicates, which of the seven decisions its text would already move; the answer was *none* for 4051 of them. That is not a defect in the corpus. It is what a corpus written against chatbots contains, and it is the reason a generated payload is two parts: a **carrier** taken verbatim from the corpus, and one **directive** line written by the generator carrying the class's operative parameter. The evasion is theirs. The payment instruction is ours, because there was none to take — and so, in practice, is the class.
+
+Benign tasks were refused too, and one refusal is worth naming: a task whose utterance matched more than one product in a storefront of a thousand real items. The agent buys *a* product, the total differs from the signed cart's, and check 4 refuses it — which would appear in the table as a false block on a benign task and would be a lie. A control the agent cannot resolve is not a control.
+
+| reason                                    | tasks |
+|-------------------------------------------|-------|
+| `utterance_matches_more_than_one_product` | 58    |
+| `search_does_not_find_own_sku`            | 4     |
+
+### gen-a — the headline table
+
+| config               | targeted ASR                | utility under attack        | benign utility                | false block rate           |
+|----------------------|-----------------------------|-----------------------------|-------------------------------|----------------------------|
+| `undefended`         | 88.3% [85.8–90.4] (649/735) | 48.8% [45.2–52.5] (359/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `model-only`         | 74.3% [71.0–77.3] (546/735) | 48.8% [45.2–52.5] (359/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `kernel`             | 0.0% [0.0–0.5] (0/735)      | 53.7% [50.1–57.3] (395/735) | 83.3% [79.5–86.6] (350/420)   | 16.7% [13.4–20.5] (70/420) |
+| `agent-guard`        | 37.3% [33.9–40.8] (274/735) | 62.9% [59.3–66.3] (462/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `kernel+agent-guard` | 0.0% [0.0–0.5] (0/735)      | 66.1% [62.6–69.5] (486/735) | 83.3% [79.5–86.6] (350/420)   | 16.7% [13.4–20.5] (70/420) |
+
+#### gen-a by class
+
+| class | `undefended`                | `model-only`               | `kernel`               | `agent-guard`              | `kernel+agent-guard`   |
+|-------|-----------------------------|----------------------------|------------------------|----------------------------|------------------------|
+| A1    | 98.1% [93.3–99.5] (103/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+| A2    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A3    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A4    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 1.0% [0.2–5.2] (1/105)     | 0.0% [0.0–3.5] (0/105) |
+| A5    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+| A6    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A7    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+
+#### gen-a by evasion family
+
+| technique           | `undefended`                  | `model-only`                | `kernel`               | `agent-guard`               | `kernel+agent-guard`   |
+|---------------------|-------------------------------|-----------------------------|------------------------|-----------------------------|------------------------|
+| base64              | 0.0% [0.0–4.3] (0/86)         | 0.0% [0.0–4.3] (0/86)       | 0.0% [0.0–4.3] (0/86)  | 0.0% [0.0–4.3] (0/86)       | 0.0% [0.0–4.3] (0/86)  |
+| formatting          | 100.0% [92.9–100.0] (50/50)   | 0.0% [0.0–7.1] (0/50)       | 0.0% [0.0–7.1] (0/50)  | 0.0% [0.0–7.1] (0/50)       | 0.0% [0.0–7.1] (0/50)  |
+| non_english         | 100.0% [91.8–100.0] (43/43)   | 0.0% [0.0–8.2] (0/43)       | 0.0% [0.0–8.2] (0/43)  | 0.0% [0.0–8.2] (0/43)       | 0.0% [0.0–8.2] (0/43)  |
+| semantic_persuasion | 100.0% [99.3–100.0] (556/556) | 98.2% [96.7–99.0] (546/556) | 0.0% [0.0–0.7] (0/556) | 49.3% [45.1–53.4] (274/556) | 0.0% [0.0–0.7] (0/556) |
+
+**Read the `model-only` and `agent-guard` columns as a measurement of one sentence.** Every case of a class carries the *same* directive template, so a classifier or an admission policy that catches one A1 case catches all 105 of them; the hand-written corpus, where each payload was written separately, is the better measurement of those two arms and its numbers are above. What the generated corpus measures well is the `undefended` control and the `kernel` arm, neither of which reads the payload's wording at all.
+
+The family mix is the corpus's, not a quota: carriers are spent scarcest-family-first, so every non-English and every formatting carrier the corpus contains is used before a plain-prose one. `base64` is applied as a transform to a declared share and scores an honest zero against the deterministic stand-in, which decodes nothing — the same honest zero it scores in the hand-written tables.
+
+#### gen-a — what refused, and why
+
+- `undefended` — nothing refused.
+- `model-only` — `GUARDRAIL_PAYEE_REDIRECTION` ×103
+- `kernel` — `CART_HASH_MISMATCH` ×394, `PAYEE_NOT_ALLOWED` ×103, `RECURRENCE_NOT_AUTHORISED` ×88, `AMOUNT_EXCEEDS_SCOPE` ×80
+- `agent-guard` — field admission refused `refund_destination: unknown` ×135, `payee: unknown` ×103, `max_transactions: merchant` ×91, `recurring: merchant` ×90
+- `kernel+agent-guard` — `CART_HASH_MISMATCH` ×394, `AMOUNT_EXCEEDS_SCOPE` ×92, `RECURRENCE_NOT_AUTHORISED` ×1; field admission refused `refund_destination: unknown` ×124, `payee: unknown` ×103, `recurring: merchant` ×87
+
+### gen-b — held out — the headline table
+
+| config               | targeted ASR                | utility under attack        | benign utility                | false block rate           |
+|----------------------|-----------------------------|-----------------------------|-------------------------------|----------------------------|
+| `undefended`         | 88.2% [85.6–90.3] (648/735) | 49.0% [45.4–52.6] (360/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `model-only`         | 74.3% [71.0–77.3] (546/735) | 49.0% [45.4–52.6] (360/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `kernel`             | 0.0% [0.0–0.5] (0/735)      | 53.9% [50.3–57.5] (396/735) | 83.3% [79.5–86.6] (350/420)   | 16.7% [13.4–20.5] (70/420) |
+| `agent-guard`        | 37.3% [33.9–40.8] (274/735) | 62.9% [59.3–66.3] (462/735) | 100.0% [99.1–100.0] (420/420) | 0.0% [0.0–0.9] (0/420)     |
+| `kernel+agent-guard` | 0.0% [0.0–0.5] (0/735)      | 66.1% [62.6–69.5] (486/735) | 83.3% [79.5–86.6] (350/420)   | 16.7% [13.4–20.5] (70/420) |
+
+#### gen-b — held out by class
+
+| class | `undefended`                | `model-only`               | `kernel`               | `agent-guard`              | `kernel+agent-guard`   |
+|-------|-----------------------------|----------------------------|------------------------|----------------------------|------------------------|
+| A1    | 97.1% [91.9–99.0] (102/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+| A2    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A3    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A4    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 1.0% [0.2–5.2] (1/105)     | 0.0% [0.0–3.5] (0/105) |
+| A5    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+| A6    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) |
+| A7    | 86.7% [78.9–91.9] (91/105)  | 86.7% [78.9–91.9] (91/105) | 0.0% [0.0–3.5] (0/105) | 0.0% [0.0–3.5] (0/105)     | 0.0% [0.0–3.5] (0/105) |
+
+#### gen-b — held out by evasion family
+
+| technique           | `undefended`                  | `model-only`                | `kernel`               | `agent-guard`               | `kernel+agent-guard`   |
+|---------------------|-------------------------------|-----------------------------|------------------------|-----------------------------|------------------------|
+| base64              | 0.0% [0.0–4.2] (0/87)         | 0.0% [0.0–4.2] (0/87)       | 0.0% [0.0–4.2] (0/87)  | 0.0% [0.0–4.2] (0/87)       | 0.0% [0.0–4.2] (0/87)  |
+| formatting          | 100.0% [92.9–100.0] (50/50)   | 0.0% [0.0–7.1] (0/50)       | 0.0% [0.0–7.1] (0/50)  | 0.0% [0.0–7.1] (0/50)       | 0.0% [0.0–7.1] (0/50)  |
+| non_english         | 100.0% [90.4–100.0] (36/36)   | 0.0% [0.0–9.6] (0/36)       | 0.0% [0.0–9.6] (0/36)  | 0.0% [0.0–9.6] (0/36)       | 0.0% [0.0–9.6] (0/36)  |
+| semantic_persuasion | 100.0% [99.3–100.0] (562/562) | 97.2% [95.4–98.2] (546/562) | 0.0% [0.0–0.7] (0/562) | 48.8% [44.6–52.9] (274/562) | 0.0% [0.0–0.7] (0/562) |
+
+**Read the `model-only` and `agent-guard` columns as a measurement of one sentence.** Every case of a class carries the *same* directive template, so a classifier or an admission policy that catches one A1 case catches all 105 of them; the hand-written corpus, where each payload was written separately, is the better measurement of those two arms and its numbers are above. What the generated corpus measures well is the `undefended` control and the `kernel` arm, neither of which reads the payload's wording at all.
+
+The family mix is the corpus's, not a quota: carriers are spent scarcest-family-first, so every non-English and every formatting carrier the corpus contains is used before a plain-prose one. `base64` is applied as a transform to a declared share and scores an honest zero against the deterministic stand-in, which decodes nothing — the same honest zero it scores in the hand-written tables.
+
+#### gen-b — held out — what refused, and why
+
+- `undefended` — nothing refused.
+- `model-only` — `GUARDRAIL_PAYEE_REDIRECTION` ×102
+- `kernel` — `CART_HASH_MISMATCH` ×394, `PAYEE_NOT_ALLOWED` ×102, `RECURRENCE_NOT_AUTHORISED` ×88, `AMOUNT_EXCEEDS_SCOPE` ×80
+- `agent-guard` — field admission refused `refund_destination: unknown` ×135, `payee: unknown` ×102, `max_transactions: merchant` ×91, `recurring: merchant` ×90
+- `kernel+agent-guard` — `CART_HASH_MISMATCH` ×394, `AMOUNT_EXCEEDS_SCOPE` ×92, `RECURRENCE_NOT_AUTHORISED` ×1; field admission refused `refund_destination: unknown` ×124, `payee: unknown` ×102, `recurring: merchant` ×87
+
+### gen-a against gen-b
+
+| config               | gen-a ASR                   | gen-b ASR                   |                   |
+|----------------------|-----------------------------|-----------------------------|-------------------|
+| `undefended`         | 88.3% [85.8–90.4] (649/735) | 88.2% [85.6–90.3] (648/735) | intervals overlap |
+| `model-only`         | 74.3% [71.0–77.3] (546/735) | 74.3% [71.0–77.3] (546/735) | intervals overlap |
+| `kernel`             | 0.0% [0.0–0.5] (0/735)      | 0.0% [0.0–0.5] (0/735)      | intervals overlap |
+| `agent-guard`        | 37.3% [33.9–40.8] (274/735) | 37.3% [33.9–40.8] (274/735) | intervals overlap |
+| `kernel+agent-guard` | 0.0% [0.0–0.5] (0/735)      | 0.0% [0.0–0.5] (0/735)      | intervals overlap |
+
+Overlapping intervals are the result to want and they are close to true by construction here. The two batches share no carrier text and every other thing about them is identical — the same seven directive templates, the same rotation over tasks and injection points — and the deterministic stand-in acts on the directive, which is the half that does not differ. Held-out generalisation is a claim a model arm could make from this comparison; the stand-in cannot.
+
+### The false block rate, as a policy and a distribution
+
+**A stated policy, applied blind.** Every generated intent's scope comes from one rule and nothing in it looks at the item being bought:
+
+> per-transaction cap = the 90th percentile price of the item's own category, rounded up to the next 50000 paise; cumulative cap = four times that; three transactions; no recurrence. Declared once and applied blind — whatever fraction of tasks lands above its own cap is the finding.
+
+Whatever fraction of tasks lands above its own cap is the finding. It is not a knob: the false block rate **is** the measurement of this policy against a real price distribution, and moving the quantile moves the number by definition. The caps the rule produced, per category:
+
+| category      | per-transaction cap | tasks | above cap |
+|---------------|---------------------|-------|-----------|
+| automotive    | ₹5,000              | 36    | 4 (11%)   |
+| clothing      | ₹2,500              | 140   | 31 (22%)  |
+| electronics   | ₹4,000              | 39    | 14 (36%)  |
+| home          | ₹4,000              | 63    | 2 (3%)    |
+| jewellery     | ₹35,500             | 94    | 11 (12%)  |
+| personal_care | ₹3,000              | 24    | 4 (17%)   |
+| sports        | ₹1,500              | 4     | 2 (50%)   |
+| stationery    | ₹2,500              | 20    | 2 (10%)   |
+
+- `undefended` — 0.0% [0.0–0.9] (0/420); nothing refused
+- `model-only` — 0.0% [0.0–0.9] (0/420); nothing refused
+- `kernel` — 16.7% [13.4–20.5] (70/420); `AMOUNT_EXCEEDS_SCOPE` ×70
+- `agent-guard` — 0.0% [0.0–0.9] (0/420); nothing refused
+- `kernel+agent-guard` — 16.7% [13.4–20.5] (70/420); `AMOUNT_EXCEEDS_SCOPE` ×70
+
+Seventy refusals are not listed one by one. Twenty-five tasks earned a table naming each; four hundred and twenty would earn a table nobody reads, and the thing that actually explains the number is the policy above and the distribution beside it.
+
+### Overhead per money-moving call, over the generated benign suite
+
+| config               | base p50 | arm p50 | added p50 | base p99 | arm p99 | added p99 | calls |
+|----------------------|----------|---------|-----------|----------|---------|-----------|-------|
+| `model-only`         | 0.15 ms  | 0.18 ms | +0.03 ms  | 0.20 ms  | 0.23 ms | +0.04 ms  | 595   |
+| `kernel`             | 0.15 ms  | 2.56 ms | +2.42 ms  | 0.20 ms  | 3.31 ms | +3.12 ms  | 574   |
+| `agent-guard`        | 0.15 ms  | 0.16 ms | +0.02 ms  | 0.20 ms  | 0.22 ms | +0.02 ms  | 595   |
+| `kernel+agent-guard` | 0.15 ms  | 2.56 ms | +2.42 ms  | 0.20 ms  | 3.26 ms | +3.06 ms  | 574   |
+
+Pooled over the pooled calls of every shard. A p99 of per-shard p99s would be a p99 of nothing, which is already the rule inside one suite and has to survive the merge.
+
+### Reproduced on a different machine
+
+The same generated corpus, the same seed, the same deterministic stand-in — run once on a laptop and once on a hosted Kaggle session with the internet disabled, and then compared **case by case** rather than table by table.
+
+|                  | local                             | hosted                               |
+|------------------|-----------------------------------|--------------------------------------|
+| operating system | macOS-26.5-arm64-arm-64bit-Mach-O | Linux-6.12.90+-x86_64-with-glibc2.35 |
+| architecture     | arm64                             | x86_64                               |
+| python           | 3.14.6                            | 3.12.13                              |
+| cryptography     | 50.0.1                            | 43.0.3                               |
+| pydantic         | 2.13.5                            | 2.12.3                               |
+| seconds per case | 0.005                             | 0.133                                |
+
+**5775 cases agree on all 10 deterministic fields and on the whole ledger, with 0 differences.** Run ids, event-log heads, audit-chain heads, entry counts, decisions and every debit: identical.
+
+Two fields are deliberately **excluded** from that comparison and would fail it: `latency_us` and `money_calls`. They are the one part of a run record that measures the hardware rather than the run, and the two machines differ there by more than an order of magnitude — which is exactly why no duration ever reaches the event log or the audit chain. A project that hashed a timing would have no reproducible chain at all. The per-case figures in the table are wall-clock and are not comparable to the microsecond overhead column above: the local one is derived from per-shard timestamps at one-second granularity and the hosted one from a twelve-case warm-up, so both are order-of-magnitude figures for choosing a shard count rather than measurements of the kernel.
+
+The hosted session's own containment record: **0** non-local connections refused, **0** permitted, no hosts on the allowance. The guard was armed around the whole session as well as around each run, and the platform had the network disabled — two different kinds of evidence for one claim, which is why the guard is armed even where the platform already refuses.
+
+Until now every check of REQ-3 was two runs on one machine, which tests the code and not the claim: a hidden dependency on the CPU, the Python version or a library's internals reproduces perfectly against itself. Here the operating system, the architecture and three library versions all differ.
+
+### Containment over the generated runs
+
+- runs behind this section — **9450**, of which **9450** were executed with the containment guard armed
+- shards — **60**, of which **60** had every run armed
+- non-local connections refused — **0**
+- non-local connections permitted — **0**
+- hosts on the allowance — **none**
+
+Counted separately from the `## Containment` block above, which covers the hand-written matrix's runs. Two measurements, two counts: one total would let one set of runs vouch for another set's guard. The guarantee is the same one and stated the same way — *no socket opened through Python's socket module* — and it is not a sandbox. Run on Kaggle with `enable_internet: false` the claim is stronger, because the platform refuses the network as well; `kaggle/README.md` says how and says why a model arm could not share this table.
+
+### What the generated tables do not say
+
+Five things, and they are printed in full at the end of this document under *What these numbers do not say* rather than twice: placement is templated; the generator could have been tuned against `gen-a`; the injection corpus was written against chatbots and supplies the evasion but not the payment instruction; the class of a case is the generator's rotation; and **narrower intervals are a statement about n, not about the kernel getting better** — it is the same kernel, byte for byte, as the one the hand-written tables measured.
+
+<!-- generated-corpus:end -->
+
 ## Containment
 
 - runs behind this document — **1175**, of which **1175** were executed with the containment guard armed
@@ -281,8 +508,16 @@ The guard patches `socket.socket.connect`, `connect_ex` and `socket.create_conne
 ## What these numbers do not say
 
 - **Batch B is held out and opened once, which is weaker than a corpus nobody could have tuned against.** One opening is on record in `harness/attacks/openings.jsonl`; a second read needs an explicit override and is logged as one. Nothing prevents a second read — what is prevented is a *silent* one.
-- **n is 15 per class.** Every interval in this document is wide. Two columns whose intervals overlap have not been shown to differ, and several pairs here overlap.
+- **n is 15 per class in the hand-written tables.** Every interval in those tables is wide. Two columns whose intervals overlap have not been shown to differ, and several pairs above overlap. The generated tables are the answer to that and carry their own caveats.
 - **The agent-side guard is not the contribution and is not counted as one.** The `kernel` arm runs the undefended agent deliberately: every guarantee has to hold with a fully adversarial agent, so the arm that measures the kernel runs one. The guard is reported separately.
 - **Provenance here is value-based, not interpreter-level taint.** Two fields carrying the same string are indistinguishable to it, and a merchant that guessed a user-declared value exactly would have it admitted. See `agent/provenance.py`.
 - **The oracles read the payment rail, not the kernel.** A kernel reporting its own ledger would be scoring its own exam. A run whose audit chain did not verify is discarded rather than counted as a defended one.
+<!-- generated-caveats:begin -->
 
+- **Placement is templated, so a payload's position is our choice and not an attacker's.** Each case's injection point is the next admissible one in a rotation over the surfaces the target task actually reads. An attacker would pick the best surface; the generator rotates over the legal ones. The directive also always goes *last*, which is the favourable order for the attacker under the stand-in's own rule that later text corrects earlier text.
+- **The generator could have been tuned against `gen-a`.** `gen-b` is the held-out answer, and it is there are **2 openings** on record for it — which is weaker than a corpus nobody could have tuned against. The first opening was against a corpus that was regenerated afterwards, when a defect was found in the *benign* generator; the reasons are in `harness/attacks/openings.jsonl` and a reader should weigh them rather than take this sentence for it.
+- **The injection corpus was written against chatbots, not against a payment rail.** 4051 of 4055 admitted carriers name none of the seven payment decisions. The corpus supplies the evasion; the operative payment instruction in every generated payload was written by the generator, because there was none in the corpus to take. A generated case is therefore real attack *text* wrapped around a synthetic payment *directive*, and it is a weaker artefact than a payload somebody wrote against this rail.
+- **Narrower intervals are a statement about n, not about the kernel getting better.** 0/735 is a tighter bound than 0/105 because there is more evidence, not because anything in `kernel/` changed. It is the same kernel, byte for byte, as the one the hand-written tables measured.
+- **The class of a generated case is the generator's rotation, not the carrier's.** Only 2 carriers per batch already argued about the decision their case attacks; the rest were assigned. A per-class ASR here is a measurement of the directive and the kernel, not of the corpus's own intent.
+
+<!-- generated-caveats:end -->

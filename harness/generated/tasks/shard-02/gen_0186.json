@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 653900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "HIFEB7J3RCFHZ5DB"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0186.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0186.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "jack martin 40 w",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-HIFEB7J3-RCFH",
+  "task_id": "gen-0186",
+  "utterance": "Pick up the Jack Martin 40 W Sound Bar with Bluetooth , FM Radio & USB Input Mini Hi-Fi System from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "jack martin 40 w sound bar with bluetooth , fm radio & usb input mini hi-fi system"
+}

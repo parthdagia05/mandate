@@ -1,0 +1,33 @@
+{
+  "mandate_id": "im_01KDVDNA00X8BX7SHZ69C57YEF",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2026-01-01T00:15:00Z",
+  "nonce": "79itNWWON7zQu-KMtgh6UQ",
+  "principal": {
+    "user_id": "u_ananya",
+    "auth": "device_biometric"
+  },
+  "agent": {
+    "agent_id": "a_shopper",
+    "pubkey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEV1ioetk_Fmq_Oc8Gp7PSzocwim3OlA7u0o9Mbds5Lgf0ezsWK46iUOIuJRzmQAPRjfEzbCqkGJJ5-zrsgWCKzQ"
+  },
+  "utterance_hash": "sha256:5bce4363895c743ab16bb645a8aed1f66ecdb992a092ba95ad950d9a708e8914",
+  "scope": {
+    "max_amount": 2000000,
+    "per_txn_cap": 500000,
+    "currency": "INR",
+    "allowed_payees": [
+      {
+        "type": "vpa",
+        "value": "genmart@upi"
+      }
+    ],
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "max_transactions": 3,
+    "recurring": false
+  },
+  "sig": "QzLatHYq-6pdSkoPHeMGXgTfQVC_rTUCPyCQEeceHFNNWzMcPChF1JckLiaNUe19UGo0V8IcgKDgdvlQi89Htw"
+}

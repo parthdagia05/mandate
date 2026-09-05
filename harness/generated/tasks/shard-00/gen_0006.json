@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 175000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCDVFK6VMPUHZZF"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0006.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0006.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "jjc lh-108 lens hood",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACCDVFK6-VMPU",
+  "task_id": "gen-0006",
+  "utterance": "Buy the JJC LH-108 Lens Hood from GenMart and pay GenMart, nobody else.",
+  "wants": "jjc lh-108 lens hood"
+}

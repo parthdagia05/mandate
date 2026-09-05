@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 2134800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGE7M92VPHQ6NJS"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0322.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0322.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "karatcraft piccolo yellow gold",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-RNGE7M92-VPHQ",
+  "task_id": "gen-0322",
+  "utterance": "I want the Karatcraft Piccolo Yellow Gold Diamond 18 K Ring from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "karatcraft piccolo yellow gold diamond 18 k ring"
+}

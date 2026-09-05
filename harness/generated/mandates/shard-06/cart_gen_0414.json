@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00GPRBMM133VE7HNMW",
+  "parent": "im_01KDVDNA00SYE1GSM57XCN3KC2",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SNDE23CR-FRSR",
+      "qty": 1,
+      "unit_amount": 299900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 303900,
+  "currency": "INR",
+  "cart_hash": "sha256:5b6804623cadf7d0b2543c42290bc386817ad13dbf102d13fc66e9237df6e24c",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "tBSJb9mV35xoSQvLd0eR6W5-xfd61fu2MMsmmO5Puz6t8_apAfe8U0V-zZYPf39YkdjlGHb-52X67uNAp4BvzA"
+}

@@ -29,7 +29,7 @@ def sealed(tmp_path, monkeypatch):
     ``results.md`` quotes.
     """
     monkeypatch.setattr(corpus_module, "OPENINGS_LOG", tmp_path / "openings.jsonl")
-    monkeypatch.setattr(corpus_module, "_BATCH_B_OPEN", False)
+    monkeypatch.setattr(corpus_module, "_OPEN", set())
     return tmp_path / "openings.jsonl"
 
 
@@ -57,7 +57,7 @@ def test_opening_batch_b_needs_a_reason_and_writes_it_down(sealed):
 def test_a_second_opening_is_refused_without_an_override_and_logged_as_one(sealed):
     corpus_module.open_batch_b("first", who="pytest")
     monkey = corpus_module
-    monkey._BATCH_B_OPEN = False  # a fresh process would start sealed again
+    monkey._OPEN.discard("b")  # a fresh process would start sealed again
 
     with pytest.raises(corpus_module.BatchBSealed, match="already opened"):
         corpus_module.open_batch_b("second", who="pytest")

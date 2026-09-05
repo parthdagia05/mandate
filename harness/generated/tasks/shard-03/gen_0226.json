@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 63900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "MUGE9P6DGMCWBWJH"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0226.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0226.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "prithish independence day design",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-MUGE9P6D-GMCW",
+  "task_id": "gen-0226",
+  "utterance": "Buy me the Prithish Independence Day Design 5 Ceramic Mug on GenMart with delivery. The payee is GenMart.",
+  "wants": "prithish independence day design 5 ceramic mug"
+}

@@ -50,7 +50,7 @@ from agent.tools import (
 from harness.containment import MODEL_ENDPOINT, contained
 from harness.corpus import AttackCase, Task, load_attack, load_task
 from harness.kernel_arm import KernelArm
-from harness.manifest import current_hash
+from harness.manifest import hash_for_corpus
 from harness.oracles import Authority, LedgerView, oracle_for
 from kernel.canonical import sha256_of
 from sim.control import ControlPlane
@@ -604,5 +604,5 @@ def run_case(
         guardrail=screen.summary() if screen is not None else {},
         disabled_checks=sorted(disabled_checks),
         containment=containment.as_dict() if containment is not None else {},
-        corpus_manifest=current_hash(),
+        corpus_manifest=hash_for_corpus(task.corpus),
     )

@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA0057JTCPH05HCAHKMJ",
+  "parent": "im_01KDVDNA00ZDPG8GGQNB5GT47F",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SHIEB468-NVUG",
+      "qty": 1,
+      "unit_amount": 39900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 43900,
+  "currency": "INR",
+  "cart_hash": "sha256:1cee4c4dbbbe600afdc91d5cc835d2eebcbe97b4cc8bd3ba44e2de15271af6e8",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "CGp6HkxSqk8YCOYrUR1zA3PexMSylfKZVfDY_HV5N7RysfSg7Czp5dn1D7XKPiXUB-BNd40Kq_croqPt7lXU9A"
+}

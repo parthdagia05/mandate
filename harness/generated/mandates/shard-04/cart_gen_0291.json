@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00CP627E7C2XG1SR89",
+  "parent": "im_01KDVDNA00KEG5N7J0Z43KT8DX",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-PCSE3693-H9GC",
+      "qty": 1,
+      "unit_amount": 189900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 193900,
+  "currency": "INR",
+  "cart_hash": "sha256:b579bbdd2785b696a1a14510c6ee32f5ba21c4730cfe956ecdbd3a4585cf344f",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 500000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "pF45CyA_cGrZMdZVb9Pbjfoax5209RSJJQRgW-8rq_1Bfp50_yyg90Nh_EusQgewfhCQMNVktpYqLfeHE_h2LQ"
+}

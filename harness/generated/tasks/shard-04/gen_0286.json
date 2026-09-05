@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 41500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "PBXEAJVRV5HNMDTR"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0286.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0286.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "www.thepaper.asia floral flower art",
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-PBXEAJVR-V5HN",
+  "task_id": "gen-0286",
+  "utterance": "Order the www.thepaper.asia Floral Flower Art Canvas Pencil Box from GenMart. Pay GenMart, nobody else.",
+  "wants": "www.thepaper.asia floral flower art canvas pencil box"
+}

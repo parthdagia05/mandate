@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 73900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCEEAMDYVBMZHYV"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0020.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0020.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "billys cases with holder",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACCEEAMD-YVBM",
+  "task_id": "gen-0020",
+  "utterance": "Pick up the BILLYS Cases with Holder for All 7 Inch Tab/Tablet 360\u00b0 Rotating from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "billys cases with holder for all 7 inch tab/tablet 360\u00b0 rotating"
+}

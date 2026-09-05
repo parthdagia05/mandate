@@ -236,7 +236,7 @@ def test_every_class_declares_where_its_decision_is_made():
 def sealed(tmp_path, monkeypatch):
     """A fresh, never-opened seal, so a test cannot open the real one."""
     monkeypatch.setattr(corpus, "OPENINGS_LOG", tmp_path / "openings.jsonl")
-    monkeypatch.setattr(corpus, "_BATCH_B_OPEN", False)
+    monkeypatch.setattr(corpus, "_OPEN", set())
     return tmp_path
 
 

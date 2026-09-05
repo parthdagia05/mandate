@@ -1,0 +1,61 @@
+{
+  "attacker_wins": 274,
+  "batch_b_openings": 1,
+  "cases": 735,
+  "chains": null,
+  "config": "agent-guard",
+  "containment": {
+    "allowed_hosts": [],
+    "armed": 735,
+    "model_endpoint_allowed": false,
+    "non_local_allowed": 0,
+    "non_local_blocked": 0,
+    "runs": 735
+  },
+  "corpus_drift": [],
+  "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+  "dataset": "gen_a",
+  "disabled_checks": [],
+  "errors": 0,
+  "finished_at": "2026-09-05T11:00:42Z",
+  "host": {
+    "machine": "x86_64",
+    "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+    "python": "3.12.13"
+  },
+  "latency_us": {
+    "n": 1402,
+    "p50": 720,
+    "p99": 1039
+  },
+  "model": "scripted",
+  "openings": [
+    {
+      "at": "2026-08-29T21:05:15Z",
+      "batch": "b",
+      "override": false
+    },
+    {
+      "at": "2026-09-05T09:23:20Z",
+      "batch": "gen-b",
+      "override": false
+    },
+    {
+      "at": "2026-09-05T09:26:50Z",
+      "batch": "gen-b",
+      "override": true
+    }
+  ],
+  "poisoned": 0,
+  "records": "gen_a.agent-guard.1of1.jsonl",
+  "scored": 735,
+  "seed": "0",
+  "sequential": true,
+  "shard": {
+    "count": 1,
+    "index": 0
+  },
+  "started_at": "2026-09-05T11:00:34Z",
+  "suite_id": "sha256:6c4efe5235558e42c55c2fb4e0c095cc5c9b3e7df99e131195ffd6af73ca942a",
+  "task_successes": 462
+}

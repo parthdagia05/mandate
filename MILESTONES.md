@@ -351,6 +351,118 @@ clone. Architecture and threat-model docs. Video.
 
 ---
 
+## P8 — The scale-out (5 Sep)
+
+`results.md` had been saying the same thing about itself in every section: the
+intervals are wide because *n* is 15 per class, and a point estimate on 15 is
+not a fact. P8 is the answer, and it is a harness milestone rather than a kernel
+one — **nothing in `kernel/` changed**, and the generated tables say so where a
+reader might otherwise read a narrower interval as a stronger defence.
+
+Three Kaggle datasets are pinned by slug **and version** and verified by digest
+before a row is read: a Flipkart product crawl for the benign half, and two
+injection corpora for the payloads. From them the generator builds a storefront
+of 1200 real products, 420 benign tasks under a declared cap policy, and 735
+cases in each of `gen-a` and `gen-b` — 105 per class against the hand-written
+15. The kernel's ASR on `gen-a` is **0.0% [0.0–0.5] (0/735)** where batch B gave
+0/105 [0.0–3.5], and the false-block rate is **16.7% [13.4–20.5] (70/420)**
+where three of twenty-five gave [4.2–30.0].
+
+**The finding that mattered was not an ASR.** Asked which of the seven payment
+decisions each admitted carrier's own text would already move — using the
+gullible planner's own predicates, so the question is the one that matters —
+**4051 of 4055 name none of them.** A published injection corpus is attack text
+written against chatbots and it contains almost no instruction to pay anybody. A
+corpus of such payloads would score a flat zero in every arm *including the
+undefended control*, and a zero in the control makes every other column
+meaningless. So a generated payload is two parts, recorded separately on every
+case: a carrier taken verbatim from the corpus, and one directive line written
+by the generator carrying the class's operative parameter. The evasion is
+theirs; the payment instruction is ours, because there was none to take — and so,
+in practice, is the class.
+
+**The generator found two defects in itself before it found anything else.**
+Fifty-eight benign tasks had utterances that matched more than one product in a
+storefront of a thousand real items; the agent bought *a* product, the total
+disagreed with the signed cart, and check 4 refused it. That would have appeared
+in the table as a **false block on a benign task** and would have been a lie —
+nothing over-blocked, the agent bought something else. And class A7's directive
+is a directed payment address, which is exactly what class A1's rule looks for,
+so an A7 payload on a product page redirected the purchase too and one run
+became evidence for two classes. The hand-written corpus had reached the same
+restriction by hand: 29 of its 30 A7 cases sit at `support.flow`.
+
+**Two corpora, two manifests, and that is deliberate.** Folding the generated
+corpus into `harness/manifest.json` would have moved the hash the hand-written
+tables are published under without a single hand-written byte changing. The
+generated manifest covers the dataset digests, the generator version, the seed
+and per-shard hashes — coarse enough to read, exact enough to fail on one edited
+byte, and it opens the shard afterwards so the failure still names files.
+
+**Sharding is separate processes, because that is the parallelism the harness
+already sanctioned.** `run_suite` refuses re-entry in one process — SQLite has a
+single writer and the overhead column must not become a measurement of lock
+contention — so `mk suite --shard i/n` runs one contiguous block of the frozen
+corpus order and `mk merge` puts them back. The merge refuses three things, each
+because its failure produces a *complete-looking table*: two corpora merged into
+one, a shard missing, and a case counted twice. The shard index is deliberately
+**not** in `run_id`, which is what makes the third of those detectable.
+
+**`gen-b` has been opened twice and the document says so.** The first opening
+was against a corpus that was regenerated afterwards, when the benign-task
+defect above was found; the second is the one the published numbers come from.
+Both are in `harness/attacks/openings.jsonl` with their reasons, along with 57
+logged joins — a sharded run is many processes reading under one decision, and
+counting each as an opening would make "opened once" stop meaning anything while
+not logging them at all would let a read leave no trace.
+
+**Prove it**
+
+1. `mk kaggle datasets` — three pins, three licences, three digests, all `ok`.
+2. `mk corpus verify` — both manifests, and the hand-written hash unmoved.
+3. `pytest tests/test_p8_gate.py` — the undefended control lands in all seven
+   classes, and the intervals are recomputed and shown to be less than half the
+   width of batch B's.
+4. `pytest tests/test_merge.py` — the three merges that are refused.
+5. `kaggle/kernel-metadata.json` — internet off, datasets attached by version.
+
+**Done when** the generated tables are in `results.md` beside the hand-written
+ones, with the intervals narrower and the four things they do not say printed
+under the same heading as the rest of the document's limits.
+
+**The hosted run happened, and it produced the strongest result of the
+milestone — which was not an ASR.** The same corpus and the same seed, run on a
+Kaggle CPU session with the internet disabled, agree with the local run on
+**5775 cases, all ten deterministic fields and the whole ledger, with zero
+differences**: identical run ids, event-log heads, audit-chain heads and every
+debit, across macOS/arm64 and Linux/x86_64 on different Python, `cryptography`
+and `pydantic` versions. Every previous check of REQ-3 was two runs on one
+machine, which tests the code and not the claim — a hidden dependency on the
+CPU or a library's internals reproduces perfectly against itself. The two
+fields that *do* differ are `latency_us` and `money_calls`, by more than an
+order of magnitude, which is exactly why no duration ever reaches the event log
+or the audit chain.
+
+**Getting there cost five failed runs, and four of them were mine.** A kernel
+slug Kaggle derives from the *title* rather than from the pushed `id`; a
+dataset created private because `datasets create` defaults that way; an
+attachment mounted at `datasets/<owner>/<slug>` rather than flat; and
+`/kaggle/input` being a read-only file system, which this project writes beside
+itself on every kernel-arm case. Each cost a push, a queue and a run to
+discover, and each was a one-line fix. None of them needed Kaggle to
+*reproduce*: the notebook now takes its three roots from the environment and
+`tests/test_kaggle_notebook.py` executes its real cells against a temporary
+tree shaped like a session — nested mount, read-only, output directory checked
+for leaked files. That test should have existed before the first push. The
+remaining Kaggle-specific failures are caught by `mk kaggle check`, which grew
+a row per lesson.
+
+**What is still owed.** The model arm remains M7's, and it cannot share a table
+with these numbers: it needs the internet on, and a model-arm row from an
+internet-on session cannot sit in a table headed by a zero-socket claim.
+
+---
+
 ## Why this order is strong, and where it is fragile
 
 **Strong.** Every milestone ends in something demonstrable, so we are never more than a

@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 84000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NRSEGS9MZHZZQ84B"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0275.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0275.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "radhesh creation crystal yellow",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NRSEGS9M-ZHZZ",
+  "task_id": "gen-0275",
+  "utterance": "I want the Radhesh Creation Crystal Yellow Gold Plated Brass Nathiya from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "radhesh creation crystal yellow gold plated brass nathiya"
+}

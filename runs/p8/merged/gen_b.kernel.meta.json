@@ -1,0 +1,274 @@
+{
+  "attacker_wins": 0,
+  "cases": 735,
+  "config": "kernel",
+  "containment": {
+    "allowed_hosts": [],
+    "model_endpoint_allowed": false,
+    "non_local_allowed": 0,
+    "non_local_blocked": 0,
+    "runs": 735,
+    "runs_armed": 735,
+    "shards": 4,
+    "shards_fully_armed": 4
+  },
+  "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+  "dataset": "gen_b",
+  "errors": 0,
+  "latency_us": {
+    "n": 1379,
+    "p50": 1192,
+    "p99": 2817
+  },
+  "model": "auto",
+  "poisoned": 0,
+  "scored": 735,
+  "seed": "0",
+  "shards": [
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": "gen_b.kernel.1of4.chains",
+      "config": "kernel",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_b",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:26:59Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 184,
+        "p50": 1225,
+        "p99": 2817
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:26:50Z",
+          "batch": "gen-b",
+          "override": true
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_b.kernel.1of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 0
+      },
+      "started_at": "2026-09-05T09:26:58Z",
+      "suite_id": "sha256:20d9cbc44eca15a8ed1fb4fb1f0effd8586f4d99308ace34b452854edf937db2",
+      "task_successes": 10
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": "gen_b.kernel.2of4.chains",
+      "config": "kernel",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_b",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:27:01Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 254,
+        "p50": 1293,
+        "p99": 2824
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:26:50Z",
+          "batch": "gen-b",
+          "override": true
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_b.kernel.2of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 1
+      },
+      "started_at": "2026-09-05T09:27:00Z",
+      "suite_id": "sha256:362263737761d9a0641edc61a9b581a71db9456f0bf64d898a2755c09ec3df4b",
+      "task_successes": 63
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": "gen_b.kernel.3of4.chains",
+      "config": "kernel",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_b",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:27:04Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 569,
+        "p50": 857,
+        "p99": 2771
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:26:50Z",
+          "batch": "gen-b",
+          "override": true
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_b.kernel.3of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 2
+      },
+      "started_at": "2026-09-05T09:27:02Z",
+      "suite_id": "sha256:958c052e62430c400c9f9da0ef9ea0c0d9f8e92e3cd01745a71878df1f4b09c4",
+      "task_successes": 161
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 183,
+      "chains": "gen_b.kernel.4of4.chains",
+      "config": "kernel",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 183,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 183
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_b",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:27:06Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 372,
+        "p50": 1036,
+        "p99": 2819
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:26:50Z",
+          "batch": "gen-b",
+          "override": true
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_b.kernel.4of4.jsonl",
+      "scored": 183,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 3
+      },
+      "started_at": "2026-09-05T09:27:04Z",
+      "suite_id": "sha256:ad6b41f6e51d5cb5445a0b0b51d5d3f33680860aaf176cb96f88d7fed82c3fc1",
+      "task_successes": 162
+    }
+  ],
+  "task_successes": 396
+}

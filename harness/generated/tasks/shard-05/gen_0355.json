@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 43900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "SHIEB468NVUG5HMP"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0355.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0355.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "craftuno handcrafted soapstone mini",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-SHIEB468-NVUG",
+  "task_id": "gen-0355",
+  "utterance": "Order the Craftuno Handcrafted Soapstone Mini Cannon Showpiece - 6.25 cm from GenMart. Pay GenMart, nobody else.",
+  "wants": "craftuno handcrafted soapstone mini cannon showpiece - 6.25 cm"
+}

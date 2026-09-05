@@ -40,7 +40,6 @@ from typing import Any
 
 from agent.llm import MAX_FURTHER_PAYMENTS, ModelClient, Reply, Turn
 from agent.tools import UndefendedTools
-from sim.merchants.shopkart import CATALOGUE
 
 __all__ = ["SYSTEM_PROMPT", "STEP_TOOLS", "PlanResult", "UndefendedAgent"]
 
@@ -265,10 +264,11 @@ class UndefendedAgent:
         # 1. Search. The catalogue is merchant content and so is everything
         #    downstream of it.
         catalogue = self.tools.search_catalog(task["query"])
+        known = self.tools.known_products()
         candidates = {
-            sku: CATALOGUE[sku][0]
+            sku: known[sku]
             for sku in catalogue.data.get("skus", [])
-            if sku in CATALOGUE
+            if sku in known
         }
 
         chosen = self._ask(
@@ -394,7 +394,7 @@ class UndefendedAgent:
                     for payment in self.tools.settled
                 ],
                 "line_items": result.line_items,
-                "known_skus": {sku: entry[1] for sku, entry in CATALOGUE.items()},
+                "known_skus": self.tools.known_prices(),
             },
             self.tools.prose_so_far(),
         )

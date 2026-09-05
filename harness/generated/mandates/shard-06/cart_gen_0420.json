@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00EFJSDTWAF368EB39",
+  "parent": "im_01KDVDNA00MQBT0GZE4AFHHMW2",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SNDEBR9F-T9GB",
+      "qty": 1,
+      "unit_amount": 79900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 83900,
+  "currency": "INR",
+  "cart_hash": "sha256:2857173318c12dd2e0a5f33dd9b6a7b1ecd149737113d250bb66cfeb4073ccf3",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "_MM7RdMmMPAB8udd766uWDGqyu33pRdO1EGaeq4Opbl978Fjv5tjxfuxUUwh2HOM1uFdaX1IM1IJM_8GWXzxGA"
+}

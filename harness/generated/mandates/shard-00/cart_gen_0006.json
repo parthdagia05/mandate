@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00J9CFTGTPWPQQVJ7V",
+  "parent": "im_01KDVDNA00R11SX71RR4XWXZGE",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-ACCDVFK6-VMPU",
+      "qty": 1,
+      "unit_amount": 171000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 175000,
+  "currency": "INR",
+  "cart_hash": "sha256:efcf03ce763a45dcedfdac12ea8afd2e732ff0d3d87999ca11a80228a20224a2",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "_HGina8hqeOKVxSCLQVZQxVDSzSQxF8MPZaOivZw_RBvjLPV0FFFuQGvOM8VGZMWU-Ovl6bZt0ccUjEb24Mblw"
+}

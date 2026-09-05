@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00BR9JMQF2Y86CP82Z",
+  "parent": "im_01KDVDNA00D2YXA5BCZD8F7AQP",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-MUGEACY8-HBSW",
+      "qty": 1,
+      "unit_amount": 65000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 69000,
+  "currency": "INR",
+  "cart_hash": "sha256:05a0c216c37f7a9b271948c5e466cc0d16dacb80e34cc0b61d97a618b892d36e",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "zmELqKsJwm5f_LsY8wmBM_uk_GwBblayyaDm1VKqViN-0kVHjPG381RHuJZRpwR05ZMFOPgP7QxycAEFYWOu7A"
+}

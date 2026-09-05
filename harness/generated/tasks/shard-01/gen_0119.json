@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 48900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "CLDE26U5N2TSHREG"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0119.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0119.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "danilo official arsenal fc",
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-CLDE26U5-N2TS",
+  "task_id": "gen-0119",
+  "utterance": "Pick up the Danilo Official Arsenal FC 2015 Wall Calendar from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "danilo official arsenal fc 2015 wall calendar"
+}

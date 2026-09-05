@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 93900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCEGYPF35GBXNGB"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0026.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0026.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "xebac xebac-charger-b895 battery charger",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACCEGYPF-35GB",
+  "task_id": "gen-0026",
+  "utterance": "Order the XEBAC XEBAC-CHARGER-B895 Battery Charger from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "xebac xebac-charger-b895 battery charger"
+}

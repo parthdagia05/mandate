@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 163900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "SHIE6ZSBWKWVVNB2"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0350.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0350.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "tiedribbons we love mom",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SHIE6ZSB-WKWV",
+  "task_id": "gen-0350",
+  "utterance": "Buy me the Tiedribbons We Love Mom Tile Showpiece - 28 cm on GenMart with delivery. The payee is GenMart.",
+  "wants": "tiedribbons we love mom tile showpiece - 28 cm"
+}

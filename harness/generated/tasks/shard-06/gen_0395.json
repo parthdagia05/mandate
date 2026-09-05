@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 63900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "SHTEA48RXHZZ7YKB"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-06/cart_gen_0395.json",
+    "intent": "harness/generated/mandates/shard-06/intent_gen_0395.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "people women's printed casual",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-SHTEA48R-XHZZ",
+  "task_id": "gen-0395",
+  "utterance": "Order the People Women's Printed Casual Shirt from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "people women's printed casual shirt"
+}

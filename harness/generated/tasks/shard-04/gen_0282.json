@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 39900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "PBXE5ZJZJJTCZDBT"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0282.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0282.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "disney princess cartoon art",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-PBXE5ZJZ-JJTC",
+  "task_id": "gen-0282",
+  "utterance": "Get me the Disney Princess Cartoon Art Plastic Pencil Box on GenMart, delivery included, and pay GenMart.",
+  "wants": "disney princess cartoon art plastic pencil box"
+}

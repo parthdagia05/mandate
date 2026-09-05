@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 143900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "DREE3D2NTZXV6JSZ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0154.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0154.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "ishin women's maxi dress",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-DREE3D2N-TZXV",
+  "task_id": "gen-0154",
+  "utterance": "Order the Ishin Women's Maxi Dress from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "ishin women's maxi dress"
+}

@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "automotive",
+    "per_txn_cap": 500000,
+    "source_pid": "PCSEAH5WEFMRTDEX"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0295.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0295.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "easy gardening 8 inch",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 2000000,
+    "max_transactions": 3,
+    "per_txn_cap": 500000,
+    "recurring": false
+  },
+  "sku": "SK-PCSEAH5W-EFMR",
+  "task_id": "gen-0295",
+  "utterance": "Pick up the Easy Gardening 8 Inch Elegance Plant Container Set from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "easy gardening 8 inch elegance plant container set"
+}

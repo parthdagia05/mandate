@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 326500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGDTBQSME354KFA"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0315.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0315.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "kiara jewellery sterling silver",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-RNGDTBQS-ME35",
+  "task_id": "gen-0315",
+  "utterance": "I want the Kiara Jewellery Sterling Silver Cubic Zirconia Rhodium Ring from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "kiara jewellery sterling silver cubic zirconia rhodium ring"
+}

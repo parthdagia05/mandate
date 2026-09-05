@@ -13,6 +13,21 @@ repo and invalidate the published manifest hash for no reason.
 Everything under ``fixtures/`` is test-only. The private keys are committed on
 purpose: reproducing the corpus from a fresh clone matters more than the
 secrecy of a key that signs nothing real.
+
+``--generated`` signs the P8 generated corpus instead: hundreds of tasks, two
+signatures and two files each, written into shard directories under
+``harness/generated/mandates/``. Three properties are kept from the
+hand-written path and each is load-bearing at corpus scale:
+
+* **one source of truth.** The task row produces the mandate. Nothing edits a
+  signed fixture afterwards, so ``expect`` and the signature are two statements
+  of one fact rather than two guesses.
+* **``--force`` still required.** ECDSA picks a fresh nonce per signature, so a
+  rebuild is a *new corpus with a new hash*, and every table that quoted the old
+  one is stale. Generate once, at freeze time.
+* **the same committed keys.** The generated corpus is signed by the same user
+  and agent keys as the hand-written one, so ``fixtures/keys/`` does not move
+  and neither does the hand-written manifest hash.
 """
 
 from __future__ import annotations
@@ -53,6 +68,13 @@ UNIT_AMOUNTS: dict[str, int] = {
 FIXTURES = REPO_ROOT / "fixtures"
 TASKS = REPO_ROOT / "harness" / "tasks"
 
+#: Where the generated corpus's signed mandates go. Outside ``fixtures/`` on
+#: purpose: ``harness/manifest.py`` covers ``fixtures/**``, and a generated
+#: mandate written in there would move the hand-written corpus's published
+#: manifest hash without a hand-written byte having changed.
+GENERATED_TASKS = REPO_ROOT / "harness" / "generated" / "tasks"
+GENERATED_MANDATES = REPO_ROOT / "harness" / "generated" / "mandates"
+
 
 def write_keys() -> tuple[str, str]:
     (FIXTURES / "keys").mkdir(parents=True, exist_ok=True)
@@ -82,6 +104,22 @@ class TaskTotalMismatch(ValueError):
     """
 
 
+def unit_amounts_for(task: dict) -> dict[str, int]:
+    """The price list the task's own storefront serves.
+
+    Read from the merchant rather than restated, so a price that moves in one
+    place cannot leave a signed cart behind at the old one — and read from
+    *this task's* merchant, because there is more than one storefront now and
+    signing a generated cart at ShopKart's prices would fail check 3's sum
+    conjunct on every generated run.
+    """
+    if task.get("merchant") == "genmart":
+        from sim.merchants.generated import load_catalogue
+
+        return load_catalogue().unit_amounts()
+    return UNIT_AMOUNTS
+
+
 def task_line_items(task: dict) -> list[dict]:
     """The basket the task describes, in the order the planner builds it.
 
@@ -90,8 +128,9 @@ def task_line_items(task: dict) -> list[dict]:
     — but building it the same way here means a mismatch between the fixture and
     the run is a real disagreement rather than a difference in construction.
     """
+    prices = unit_amounts_for(task)
     return [
-        {"sku": task["sku"], "qty": task["qty"], "unit_amount": UNIT_AMOUNTS[task["sku"]]}
+        {"sku": task["sku"], "qty": task["qty"], "unit_amount": prices[task["sku"]]}
     ] + [dict(item) for item in task.get("extra_line_items", [])]
 
 
@@ -422,12 +461,60 @@ def write_manifest() -> str:
     return manifest_hash
 
 
+def build_generated(user_key, agent_key, ids, clock) -> dict:
+    """Sign every generated task, in one pass, into shard directories.
+
+    One pass rather than one process per shard: the signing key is the same for
+    all of them and a per-shard process would be a per-shard *clock*, so two
+    shards would issue mandates with the same ids. Ids come from one
+    :class:`IdFactory` here for exactly that reason.
+
+    Shard directories rather than one flat one, because a manifest over
+    thousands of paths is a manifest nobody reads. The generated manifest hashes
+    a shard as a unit and still fails on a single edited byte.
+    """
+    from harness.generate.tasks import shard_dir
+
+    paths = sorted(GENERATED_TASKS.glob("*/*.json"))
+    if not paths:
+        raise SystemExit(
+            f"no generated tasks under {GENERATED_TASKS}. Run "
+            "`mk generate corpus --force` first; it writes the tasks, then "
+            "calls this."
+        )
+
+    for stale in GENERATED_MANDATES.glob("*/*.json"):
+        stale.unlink()
+
+    signed = 0
+    for position, path in enumerate(paths):
+        task = json.loads(path.read_text())
+        intent, cart = build_task_mandates(task, user_key, agent_key, ids, clock)
+        directory = GENERATED_MANDATES / shard_dir(position)
+        directory.mkdir(parents=True, exist_ok=True)
+        (REPO_ROOT / task["mandates"]["intent"]).write_text(
+            json.dumps(intent, indent=2) + "\n"
+        )
+        (REPO_ROOT / task["mandates"]["cart"]).write_text(
+            json.dumps(cart, indent=2) + "\n"
+        )
+        signed += 1
+    return {"tasks": signed, "signatures": signed * 2, "shards": len(
+        {p.parent.name for p in GENERATED_MANDATES.glob("*/*.json")}
+    )}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--force",
         action="store_true",
         help="required: rerunning re-signs everything and changes the manifest hash",
+    )
+    parser.add_argument(
+        "--generated",
+        action="store_true",
+        help="sign the P8 generated corpus instead of the hand-written one",
     )
     args = parser.parse_args()
     if not args.force:
@@ -438,6 +525,25 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    if args.generated:
+        # The *same* committed keys, deliberately: a fresh keypair here would
+        # rewrite fixtures/keys/ and move the hand-written corpus's manifest
+        # hash, invalidating every table published against it.
+        user_key = serialization.load_pem_private_key(
+            (FIXTURES / "keys" / "user.key.pem").read_bytes(), password=None
+        )
+        agent_key = serialization.load_pem_private_key(
+            (FIXTURES / "keys" / "agent.key.pem").read_bytes(), password=None
+        )
+        clock = Clock()
+        ids = IdFactory(clock, RunRandom("generated-fixture-seed-0"))
+        counts = build_generated(user_key, agent_key, ids, clock)
+        print(
+            f"generated fixtures rebuilt: {counts['tasks']} task(s), "
+            f"{counts['signatures']} signature(s), {counts['shards']} shard(s)"
+        )
+        return 0
 
     FIXTURES.mkdir(exist_ok=True)
     (FIXTURES / "mandates").mkdir(exist_ok=True)

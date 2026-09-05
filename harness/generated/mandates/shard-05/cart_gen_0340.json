@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00K5BFKBHDMJMP7YBM",
+  "parent": "im_01KDVDNA00GBZBD2F0RRY2NW26",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-RTRE6CPU-D2WJ",
+      "qty": 1,
+      "unit_amount": 225000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 229000,
+  "currency": "INR",
+  "cart_hash": "sha256:30317a01d7ea383aac954984172c233256dec30eca2e27ff1cd13c07ef3d469d",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "y-LiFMzJflFioYGgXtF5PkNx0guZCxt5tOhyB8LSyHFj7-70ptvNexfADlBbA2kT5R9cDGISa4KSQBkdBr_5mg"
+}

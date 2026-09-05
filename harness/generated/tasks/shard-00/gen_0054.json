@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 243900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "BBAEFUFSYGJYCUYS"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0054.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0054.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "yugshajewels brass bracelet",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-BBAEFUFS-YGJY",
+  "task_id": "gen-0054",
+  "utterance": "I want the YugshaJewels Brass Bracelet from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "yugshajewels brass bracelet"
+}

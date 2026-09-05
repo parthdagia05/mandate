@@ -1,0 +1,54 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 393700
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "automotive",
+    "per_txn_cap": 500000,
+    "source_pid": "PCSE4V8HRKQH5A5V"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0292.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0292.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "yuccabe italia combo for",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 2000000,
+    "max_transactions": 3,
+    "per_txn_cap": 500000,
+    "recurring": false
+  },
+  "sku": "SK-PCSE4V8H-RKQH",
+  "task_id": "gen-0292",
+  "utterance": "Pick up the Yuccabe Italia Combo for 3 Stoic Yellow Self Watering planter Plant Container Set from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "yuccabe italia combo for 3 stoic yellow self watering planter plant container set"
+}
