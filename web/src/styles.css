@@ -1,0 +1,435 @@
+/* The design rules of issue #84, as the stylesheet rather than as a document.
+ *
+ * "None of the look that reads as generated": one type scale, one accent,
+ * everything else monochrome, an 8px grid, dense left-aligned tables with the
+ * numerics right-aligned, buttons that look pressable, and no transitions
+ * anywhere. The last one is stated as a rule so it survives the second pass,
+ * so it is written here as a rule too.
+ *
+ * Tabular numerals are load-bearing rather than decorative. Every column on the
+ * results page is a proportion, an interval and a pair of counts; proportional
+ * digits make "80.0% [71.4-86.5] (84/105)" fail to line up with the row above
+ * it, and a table a reader cannot scan down is a table they will not check.
+ */
+
+:root {
+  /* One scale. Nothing between these sizes gets invented later. */
+  --t-xs: 11px;
+  --t-sm: 12px;
+  --t-base: 13px;
+  --t-md: 15px;
+  --t-lg: 19px;
+  --t-xl: 25px;
+
+  /* 8px grid. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 16px;
+  --s4: 24px;
+  --s5: 32px;
+  --s6: 48px;
+
+  /* Monochrome, plus exactly one accent. */
+  --ink: #16150f;
+  --ink-2: #4a4740;
+  --ink-3: #757067;
+  --rule: #d8d5cb;
+  --rule-2: #ebe8e0;
+  --paper: #fbfaf6;
+  --paper-2: #f2f0e8;
+  --accent: #8a2b1f;
+  --accent-bg: #f6ebe8;
+
+  /* Not colour "themes" — these three states are facts a run carries, and each
+   * is a border and a tint rather than a filled badge, because a table of
+   * filled badges reads as a status dashboard and this is a record. */
+  --deny: #8a2b1f;
+  --deny-bg: #f6ebe8;
+  --allow: #33512c;
+  --allow-bg: #edf2ea;
+  --warn: #6b5300;
+  --warn-bg: #f7f1de;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Numerals line up everywhere, not only in tables: a reason code in prose and
+   * the same code in a column should be the same width. */
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--t-base) / 1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* No transitions. #84: stated as a rule so it survives the second pass. */
+* {
+  transition: none !important;
+  animation: none !important;
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+h1 {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--s3);
+}
+h2 {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  margin: var(--s5) 0 var(--s3);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+h3 {
+  font-size: var(--t-md);
+  font-weight: 600;
+  margin: var(--s4) 0 var(--s2);
+}
+p {
+  margin: 0 0 var(--s3);
+  max-width: 78ch;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* --- layout ------------------------------------------------------------ */
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s4) var(--s3) var(--s6);
+}
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-2);
+}
+.masthead nav {
+  display: flex;
+  gap: var(--s3);
+}
+.masthead a {
+  color: var(--ink-2);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+.masthead a[aria-current='page'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* --- provenance -------------------------------------------------------- */
+
+/* The corpus hash, seed, model and arm (#85). A definition list rather than a
+ * card: this is the evidence a screenshot needs to be traceable, not a summary
+ * tile. */
+.provenance {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s1) var(--s3);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  padding: var(--s3);
+  margin: 0 0 var(--s3);
+}
+.provenance dt {
+  color: var(--ink-3);
+}
+.provenance dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+/* --- the stand-in banner ----------------------------------------------- */
+
+/* results.md prints this in bold and the page owes the reader the same line.
+ * Bordered and tinted, never dismissible: a caveat with a close button is a
+ * caveat the screenshot will not have. */
+.banner {
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  background: var(--warn-bg);
+  padding: var(--s2) var(--s3);
+  margin: 0 0 var(--s3);
+  max-width: 78ch;
+}
+
+/* --- tables ------------------------------------------------------------ */
+
+/* Dense, left-aligned, numerics right-aligned. No card grid for tabular data. */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  background: #fff;
+  margin: 0 0 var(--s3);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--t-sm);
+}
+th,
+td {
+  text-align: left;
+  padding: var(--s1) var(--s2);
+  border-bottom: 1px solid var(--rule-2);
+  white-space: nowrap;
+  vertical-align: top;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--rule);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr:hover td {
+  background: var(--paper-2);
+}
+td.num,
+th.num {
+  text-align: right;
+  font-family: var(--mono);
+}
+td.stat,
+th.stat {
+  font-family: var(--mono);
+  text-align: right;
+}
+caption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--s2);
+  color: var(--ink-3);
+  font-size: var(--t-xs);
+}
+
+/* --- proportions ------------------------------------------------------- */
+
+/* One cell, three parts, always together: estimate, interval, counts. The
+ * interval and the n are dimmed rather than dropped — dropping them is the
+ * thing results.md refuses to do and #85 forbids on the page. */
+.prop-est {
+  color: var(--ink);
+}
+.prop-ci,
+.prop-n {
+  color: var(--ink-3);
+}
+
+/* --- controls ---------------------------------------------------------- */
+
+/* Buttons look pressable: border, hover, active, focus ring, and a disabled
+ * state that reads as disabled. No pills, no gradients, no shadow stacks. */
+button,
+.button {
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-bottom-color: var(--ink-3);
+  padding: var(--s1) var(--s2);
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--paper-2);
+}
+button:active:not(:disabled) {
+  background: var(--rule-2);
+  border-top-color: var(--ink-3);
+  border-bottom-color: var(--rule);
+}
+button:disabled {
+  color: var(--ink-3);
+  background: var(--paper-2);
+  border-color: var(--rule-2);
+  border-bottom-color: var(--rule-2);
+  cursor: not-allowed;
+}
+select,
+input[type='text'],
+input[type='search'] {
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--rule);
+  padding: var(--s1) var(--s2);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: end;
+  margin: 0 0 var(--s3);
+}
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+}
+
+/* --- outcomes and codes ------------------------------------------------ */
+
+/* Five outcomes (#86), each visually distinct, and `poisoned` and `error` are
+ * NOT variants of a defended run. */
+.tag {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  padding: 0 var(--s1);
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tag-attacker_win {
+  border-color: var(--deny);
+  background: var(--deny-bg);
+  color: var(--deny);
+}
+.tag-blocked {
+  border-color: var(--allow);
+  background: var(--allow-bg);
+  color: var(--allow);
+}
+.tag-task_success {
+  border-color: var(--rule);
+  background: #fff;
+  color: var(--ink-2);
+}
+/* Discarded, not defended. Struck through so it can never be read as a win. */
+.tag-poisoned {
+  border-color: var(--warn);
+  background: var(--warn-bg);
+  color: var(--warn);
+  text-decoration: line-through;
+}
+.tag-error {
+  border-color: var(--ink-3);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-style: italic;
+}
+
+/* Reason codes render in the kernel's own casing, always (#84). */
+.code {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--deny);
+  background: var(--deny-bg);
+  border: 1px solid var(--deny);
+  padding: 0 var(--s1);
+  white-space: nowrap;
+}
+.code-ok {
+  color: var(--allow);
+  background: var(--allow-bg);
+  border-color: var(--allow);
+}
+
+/* --- tainted text ------------------------------------------------------ */
+
+/* Attacker-authored text, rendered by exactly one component and marked wherever
+ * it appears. The label names the injection point, because the claim of Shot 4
+ * is that the text is ordinary — so it has to be shown, and shown as theirs. */
+.payload {
+  border: 1px solid var(--deny);
+  border-left-width: 3px;
+  background: var(--deny-bg);
+  padding: var(--s2);
+  margin: var(--s2) 0;
+  max-width: 78ch;
+}
+.payload-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--deny);
+  margin-bottom: var(--s1);
+}
+.payload-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+.payload-sealed {
+  border-color: var(--rule);
+  background: var(--paper-2);
+}
+.payload-sealed .payload-label {
+  color: var(--ink-3);
+}
+
+/* --- states ------------------------------------------------------------ */
+
+.empty,
+.loading,
+.failure {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  padding: var(--s3);
+  color: var(--ink-2);
+  max-width: 78ch;
+}
+.failure {
+  border-color: var(--deny);
+  background: var(--deny-bg);
+  color: var(--ink);
+}
+.muted {
+  color: var(--ink-3);
+}
+.hash {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  word-break: break-all;
+  color: var(--ink-2);
+}

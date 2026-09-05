@@ -1,0 +1,17 @@
+{
+  "name": "mandate",
+  "owner": {
+    "name": "Mandate Kernel"
+  },
+  "metadata": {
+    "description": "Plugins for the Mandate Kernel repository.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "mandate-web",
+      "source": "./plugins/mandate-web",
+      "description": "Frontend architecture for the Mandate web layer (#85-#90): the export contract, the invariants that keep a results page honest, and a reviewer that enforces them."
+    }
+  ]
+}

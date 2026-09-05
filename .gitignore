@@ -12,3 +12,8 @@ runs/
 # P8: pulled Kaggle datasets. Pinned by digest in harness/datasets.json; the
 # bytes belong to their publishers and are re-pulled, never committed.
 data/
+
+# The web layer. `web/dist` is the bundle `npm run build` emits and `mk web`
+# serves; the lockfile beside it IS committed, because a frontend nobody can
+# build is a frontend nobody will look at (#82). Nothing here is on the path
+# `scripts/reproduce.sh` takes.
