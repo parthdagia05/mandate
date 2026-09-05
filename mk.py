@@ -13,6 +13,13 @@ it and are built on top of it.
 rather than a separate stateful command, because each run builds its own seeded
 world: a fault armed by an earlier process would have nothing left to fire in.
 
+P8 adds ``generate``, ``merge`` and ``kaggle``, and a ``--shard`` on ``suite``.
+Those four are one workflow: pull two pinned Kaggle datasets, generate a corpus
+from them, run it in shards across processes (or on Kaggle's machine, with the
+internet off), and merge the shards back into one table. Every step of it
+refuses rather than guesses — an unpinned dataset, a moved corpus, a missing
+shard, a case counted twice.
+
 ``explain`` contains no model, and that is deliberate rather than frugal. The
 chain already records the values each check compared, so explaining a decision
 is a rendering problem and not an inference one — and a model here could
@@ -52,6 +59,12 @@ CONFIG_CHOICES = (
 #: The three ``mk matrix`` runs unless told otherwise: no defence, the defence
 #: everybody proposes first, and this project's.
 HEADLINE_CHOICES = ("undefended", "model-only", "kernel")
+
+#: Every dataset a suite or a matrix can name. The ``gen_*`` three are the P8
+#: generated corpus; they sit beside the hand-written three rather than
+#: replacing them, because the hand-written tables are already published
+#: against a corpus hash that must not move.
+DATASET_CHOICES = ("benign", "batch_a", "batch_b", "gen_benign", "gen_a", "gen_b")
 
 #: Where ``mk report`` writes the document unless told otherwise.
 DEFAULT_RESULTS_PATH = REPO_ROOT / "results.md"
@@ -560,11 +573,56 @@ def cmd_suite(args: argparse.Namespace) -> int:
     in a percentage at the end.
 
     The proportions printed at the end are bare fractions. Confidence intervals
-    are deliberately not computed here: n is 15 per class and a point estimate
-    is not a fact, so the interval belongs beside the number in ``results.md``
-    rather than in a progress summary somebody might quote from a terminal.
+    are deliberately not computed here: on the hand-written corpus n is 15 per
+    class and a point estimate is not a fact, so the interval belongs beside the
+    number in ``results.md`` rather than in a progress summary somebody might
+    quote from a terminal.
+
+    ``--shard i/n`` runs one contiguous block of the frozen corpus order. Shards
+    are separate *processes* by design — SQLite has a single writer and the
+    overhead column must not become a measurement of lock contention — so this
+    command runs exactly one of them and ``mk merge`` puts them back together.
     """
-    from harness.suite import run_suite, select
+    from harness.corpus import SEALED_BATCHES, batch_is_open, join_batch, open_batch
+    from harness.shard import ShardError, parse_shard
+    from harness.suite import DATASET_BATCH, run_suite, select
+
+    shard = None
+    if args.shard:
+        try:
+            shard = parse_shard(args.shard)
+        except ShardError as exc:
+            print(f"mk suite: {exc}", file=sys.stderr)
+            return 2
+
+    batch = DATASET_BATCH.get(args.dataset)
+    if batch in SEALED_BATCHES and not batch_is_open(batch):
+        if args.join:
+            # A shard of an experiment somebody already opened the batch for.
+            # It cannot be the first read — join_batch refuses that — and it is
+            # logged as a join, so the read still leaves a trace.
+            try:
+                join_batch(batch, who="mk suite", note=args.shard or "whole dataset")
+            except (RuntimeError, ValueError) as exc:
+                print(f"mk suite: {exc}", file=sys.stderr)
+                return 2
+        elif not (args.reason or "").strip():
+            print(
+                f"mk suite: {args.dataset} draws on batch {batch!r}, which is "
+                "held out. Opening it needs --reason, and the reason is written "
+                "to harness/attacks/openings.jsonl beside the timestamp — which "
+                "is what makes 'opened once' a thing a reader can check. A "
+                "shard of a run somebody has already opened it for passes "
+                "--join instead.",
+                file=sys.stderr,
+            )
+            return 2
+        else:
+            try:
+                open_batch(batch, args.reason, override=args.override, who="mk suite")
+            except (RuntimeError, ValueError) as exc:
+                print(f"mk suite: {exc}", file=sys.stderr)
+                return 2
 
     try:
         cases = select(
@@ -572,6 +630,7 @@ def cmd_suite(args: argparse.Namespace) -> int:
             attack_class=args.attack_class,
             task=args.task,
             limit=args.limit,
+            shard=shard,
         )
     except ValueError as exc:
         print(f"mk suite: {exc}", file=sys.stderr)
@@ -579,7 +638,7 @@ def cmd_suite(args: argparse.Namespace) -> int:
 
     print(
         f"suite {args.dataset}  config {args.config}  seed {args.seed}  "
-        f"model {args.model}"
+        f"model {args.model}" + (f"  shard {shard}" if shard else "")
     )
     print(f"{len(cases)} case{'' if len(cases) == 1 else 's'}, in sequence, one kernel each")
     print()
@@ -607,6 +666,7 @@ def cmd_suite(args: argparse.Namespace) -> int:
             model=args.model,
             out=Path(args.out) if args.out else None,
             cassette=Path(args.cassette) if args.cassette else None,
+            shard=shard,
             progress=None if args.quiet else progress,
         )
     except (RuntimeError, NotImplementedError, ValueError) as exc:
@@ -640,8 +700,8 @@ def cmd_suite(args: argparse.Namespace) -> int:
     if scored:
         print()
         print(
-            "Bare fractions. n is 15 per class and a point estimate on 15 is "
-            "not a fact — the interval belongs in results.md, not here."
+            "Bare fractions with no interval. A point estimate is not a fact — "
+            "the interval belongs in results.md, not here."
         )
 
     if result.corpus_drift:
@@ -711,60 +771,110 @@ def cmd_faults(args: argparse.Namespace) -> int:
 
 
 def cmd_corpus(args: argparse.Namespace) -> int:
-    """Count the corpus, then check nothing in it has moved.
+    """Count both corpora, then check nothing in either has moved.
 
     Prints the counts first because they are what a reader wants — 105, 105, 25
-    — and the manifest hash second because it is what ``results.md`` has to
-    quote. Any edit to any task, case, seal or signed fixture changes a file
-    hash, which changes the manifest hash, which fails here by name.
+    for the hand-written corpus, 735, 735, 420 for the generated one — and the
+    manifest hashes second because those are what ``results.md`` has to quote.
+    Any edit to any task, case, seal or signed fixture changes a file hash,
+    which changes a manifest hash, which fails here by name. Inside a generated
+    shard the shard's digest fails and the shard is then opened, so the failure
+    still names files.
+
+    **Two manifests, and that is the point.** Folding the generated corpus into
+    ``harness/manifest.json`` would move the hash the hand-written tables are
+    published under without a hand-written byte changing.
     """
-    from harness.corpus import CLASSES, batch_b_openings, list_batch, list_tasks, load_attack
-    from harness.manifest import build_manifest, verify_manifest, write_manifest
+    from harness.corpus import CLASSES, list_batch, load_attack, openings
+    from harness.manifest import (
+        build_generated_manifest,
+        build_manifest,
+        generated_corpus_exists,
+        verify_generated_manifest,
+        verify_manifest,
+        write_manifest,
+    )
 
     if args.freeze:
         print(f"corpus frozen at {write_manifest()}")
         return 0
 
-    per_class: dict[str, dict[str, int]] = {klass: {"a": 0, "b": 0} for klass in CLASSES}
-    for batch in ("a", "b"):
-        for case_id in list_batch(batch):
-            per_class[load_attack(case_id).attack_class][batch] += 1
+    def class_table(batches: tuple[str, ...]) -> None:
+        per_class = {klass: dict.fromkeys(batches, 0) for klass in CLASSES}
+        for batch in batches:
+            for case_id in list_batch(batch):
+                per_class[load_attack(case_id).attack_class][batch] += 1
+        header = "class   " + "".join(f"{b:>10}" for b in batches)
+        print(header)
+        for klass in CLASSES:
+            print(f"{klass:<8}" + "".join(f"{per_class[klass][b]:>10}" for b in batches))
+        print()
 
     counts = build_manifest()["counts"]
-    print(f"batch A   {counts['batch_a']:>4} cases")
-    print(f"batch B   {counts['batch_b']:>4} cases  (sealed)")
-    print(f"benign    {counts['tasks']:>4} tasks")
+    print("hand-written corpus")
+    print(f"  batch A   {counts['batch_a']:>5} cases")
+    print(f"  batch B   {counts['batch_b']:>5} cases  (sealed)")
+    print(f"  benign    {counts['tasks']:>5} tasks")
     print()
-    print("class   batch A   batch B")
-    for klass in CLASSES:
-        print(f"{klass:<8}{per_class[klass]['a']:>7}{per_class[klass]['b']:>10}")
-    print()
+    class_table(("a", "b"))
 
-    openings = batch_b_openings()
-    if openings:
-        print(f"batch B has been opened {len(openings)} time(s):")
-        for entry in openings:
+    if generated_corpus_exists():
+        generated = build_generated_manifest()
+        gen_counts = generated["counts"]
+        print("generated corpus")
+        print(f"  gen-a     {gen_counts['gen_a']:>5} cases")
+        print(f"  gen-b     {gen_counts['gen_b']:>5} cases  (sealed)")
+        print(f"  benign    {gen_counts['tasks']:>5} tasks")
+        print(f"  generator {generated['generator_version']}  seed {generated['seed']}")
+        for role, digest in sorted(generated["dataset_digests"].items()):
+            print(f"  dataset   {role:<20} {digest}")
+        for label, shards in sorted(generated["shards"].items()):
+            print(f"  shards    {label:<20} {len(shards)}")
+        print()
+        class_table(("gen-a", "gen-b"))
+
+    entries = openings()
+    if entries:
+        print(f"held-out batches have been opened {len(entries)} time(s):")
+        for entry in entries:
             mark = " (override)" if entry["override"] else ""
-            print(f"  {entry['at']}  {entry['who']}: {entry['reason']}{mark}")
+            print(f"  {entry['at']}  {entry['batch']}  {entry['who']}: {entry['reason']}{mark}")
     else:
-        print("batch B has never been opened")
+        print("no held-out batch has ever been opened")
     print()
 
+    failed = False
     published, differences = verify_manifest()
     if differences:
-        print(f"manifest {published}")
-        print(f"CORPUS CHANGED — {len(differences)} difference(s):", file=sys.stderr)
+        print(f"manifest  {published}")
+        print(f"HAND-WRITTEN CORPUS CHANGED — {len(differences)} difference(s):", file=sys.stderr)
         for difference in differences:
             print(f"  {difference}", file=sys.stderr)
+        failed = True
+    else:
+        print(f"manifest  {published}  (unchanged)")
+
+    if generated_corpus_exists():
+        gen_published, gen_differences = verify_generated_manifest()
+        if gen_differences:
+            print(f"generated {gen_published}")
+            print(
+                f"GENERATED CORPUS CHANGED — {len(gen_differences)} difference(s):",
+                file=sys.stderr,
+            )
+            for difference in gen_differences:
+                print(f"  {difference}", file=sys.stderr)
+            failed = True
+        else:
+            print(f"generated {gen_published}  (unchanged)")
+
+    if failed:
         print(
             "\nAny published number taken against the old hash is now "
-            "unattributable. Re-freeze with `mk corpus verify --freeze` and "
-            "re-run the numbers.",
+            "unattributable. Re-freeze and re-run the numbers.",
             file=sys.stderr,
         )
         return 1
-
-    print(f"manifest {published}  (unchanged)")
     return 0
 
 
@@ -1045,13 +1155,55 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     return 0
 
 
-def _write_report(matrix, ablation, out: Path) -> None:
+def _write_report(matrix, ablation, out: Path, generated=None) -> None:
     from harness.report import render_results
 
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_results(matrix, ablation=ablation))
+    out.write_text(render_results(matrix, ablation=ablation, generated=generated))
     print(f"results         {out}")
+
+
+def cmd_report_generated(args: argparse.Namespace) -> int:
+    """Splice the generated-corpus section into an existing ``results.md``.
+
+    A separate command from ``mk report`` because it needs no matrix. The
+    hand-written tables were measured against a corpus hash and a batch B
+    opening that both still stand; re-rendering the whole document to add a
+    section would mean re-running those suites and opening the held-out set
+    again, and every number would move for no reason a reader could point at.
+
+    Idempotent: the section lives between fences and running this twice
+    produces the same document.
+    """
+    from harness.report_generated import load_generated, splice
+
+    run = load_generated(Path(args.merged), configs=list(args.config or CONFIG_CHOICES))
+    if not run.datasets:
+        print(
+            f"mk report-generated: {args.merged} holds no merged generated "
+            "suites. Run the gen_* suites, then `mk merge` them into it.",
+            file=sys.stderr,
+        )
+        return 2
+
+    hosted = None
+    if args.hosted:
+        hosted = load_generated(Path(args.hosted), configs=list(args.config or CONFIG_CHOICES))
+        if not hosted.datasets:
+            print(
+                f"mk report-generated: {args.hosted} holds no merged suites",
+                file=sys.stderr,
+            )
+            return 2
+
+    out = Path(args.out) if args.out else DEFAULT_RESULTS_PATH
+    document = out.read_text() if out.exists() else "# Results\n"
+    out.write_text(splice(document, run, hosted=hosted))
+    print(f"generated corpus  {run.corpus_manifest}")
+    print(f"datasets          {', '.join(run.datasets)}")
+    print(f"results           {out}")
+    return 0
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -1085,7 +1237,27 @@ def cmd_report(args: argparse.Namespace) -> int:
             )
             return 2
 
-    _write_report(matrix, ablation, Path(args.out) if args.out else DEFAULT_RESULTS_PATH)
+    generated = None
+    if args.generated:
+        from harness.report_generated import load_generated
+
+        generated = load_generated(
+            Path(args.generated), configs=list(matrix.configs)
+        )
+        if not generated.datasets:
+            print(
+                f"mk report: {args.generated} holds no merged generated suites. "
+                "Run the gen_* suites, then `mk merge` them into it.",
+                file=sys.stderr,
+            )
+            return 2
+
+    _write_report(
+        matrix,
+        ablation,
+        Path(args.out) if args.out else DEFAULT_RESULTS_PATH,
+        generated=generated,
+    )
     return 0
 
 
@@ -1129,6 +1301,166 @@ def _load_ablation(directory: Path):
             )
         )
     return result
+
+
+def cmd_merge(args: argparse.Namespace) -> int:
+    """Reassemble a sharded run, refusing every merge that would lie.
+
+    Prints what it refused rather than what it accepted, because a merge that
+    works is uninteresting and a merge that should not have worked is the whole
+    reason this command exists: a table short one shard looks exactly like a
+    table of a smaller suite.
+    """
+    from harness.merge import MergeError, merge, write_merged
+
+    try:
+        merged = merge([Path(p) for p in args.files])
+    except MergeError as exc:
+        print(f"mk merge: {exc}", file=sys.stderr)
+        return 1
+
+    out = Path(args.out) if args.out else Path("runs") / f"{merged.dataset}.{merged.config.replace('+', '_')}.merged.jsonl"
+    path, meta = write_merged(merged, out)
+    summary = merged.summary()
+
+    print(f"merged {len(merged.shards)} shard(s) of {merged.dataset} / {merged.config}")
+    print(f"cases           {summary['cases']}, {summary['scored']} scored, "
+          f"{summary['errors']} error(s), {summary['poisoned']} poisoned")
+    print(f"attacker wins   {summary['attacker_wins']:>5}/{summary['scored']}  "
+          f"{_pct(summary['attacker_wins'], summary['scored'])}")
+    print(f"task success    {summary['task_successes']:>5}/{summary['scored']}  "
+          f"{_pct(summary['task_successes'], summary['scored'])}")
+    latency = summary["latency_us"]
+    print(f"money calls     n={latency['n']}  p50 {latency['p50']}us  p99 {latency['p99']}us")
+    print("                pooled over pooled calls; a p99 of per-shard p99s is a p99 of nothing")
+    containment = summary["containment"]
+    print(f"containment     {containment['runs_armed']}/{containment['runs']} run(s) armed, "
+          f"{containment['shards_fully_armed']}/{containment['shards']} shard(s) fully armed, "
+          f"{containment['non_local_blocked']} non-local connection(s) refused")
+    print(f"corpus          {merged.corpus_manifest}")
+    print(f"records         {path}")
+    print(f"meta            {meta}")
+    return 0
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    """Build the generated corpus from the pinned Kaggle datasets.
+
+    A thin wrapper over ``scripts/generate_corpus.py`` rather than a second
+    implementation: the ``--force`` guard on re-signing has to be the same guard
+    whichever way generation is reached, and a code path that could sign without
+    it is the one somebody uses.
+    """
+    import subprocess
+
+    argv = [sys.executable, str(REPO_ROOT / "scripts" / "generate_corpus.py")]
+    if args.force:
+        argv.append("--force")
+    if args.seed:
+        argv += ["--seed", args.seed]
+    return subprocess.run(argv).returncode
+
+
+def cmd_kaggle(args: argparse.Namespace) -> int:
+    """Push, watch and fetch the hosted run; or pull the datasets it needs.
+
+    The wrapper exists so the pushed code, the attached dataset versions and
+    the run that produced a table are **one recorded object** instead of three
+    things somebody remembers. Credentials are never read here and never
+    printed; the CLI reads them from ~/.kaggle/kaggle.json.
+    """
+    from harness import kaggle as kg
+
+    if args.kaggle_command == "datasets":
+        from harness.datasets import read_registry, verify
+
+        registry = read_registry()
+        if not registry:
+            print("no datasets pinned; nothing to check", file=sys.stderr)
+            return 1
+        failed = False
+        for role, entry in sorted(registry.items()):
+            if args.pull:
+                directory = kg.pull_dataset(entry.ref, entry.version)
+                print(f"pulled {entry.pin} -> {directory}")
+            differences = verify(role)
+            mark = "ok" if not differences else "MOVED"
+            print(f"{role:<20} {entry.pin:<70} {entry.licence:<14} "
+                  f"{entry.rows:>7} rows  {mark}")
+            print(f"{'':<20} {entry.digest}")
+            for difference in differences:
+                print(f"  {difference}", file=sys.stderr)
+                failed = True
+        if failed:
+            print(
+                "\nA dataset that moved cannot re-derive the generated corpus, "
+                "and a corpus built from an unpinned dataset is not "
+                "reproducible. Re-pull, or re-pin and regenerate.",
+                file=sys.stderr,
+            )
+        return 1 if failed else 0
+
+    if args.kaggle_command == "check":
+        rows = kg.check()
+        for row in rows:
+            print(f"{'ok  ' if row['ok'] else 'FAIL'}  {row['check']:<16} {row['detail']}")
+        if all(row["ok"] for row in rows):
+            print("\nReady. `mk kaggle repo` first — the notebook attaches it.")
+            return 0
+        print(
+            "\nNothing has been uploaded. Fix the FAIL rows above; "
+            "kaggle/README.md has the order they go in.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.kaggle_command == "repo":
+        try:
+            if args.stage_only:
+                staged = kg.stage_repo(Path(args.stage))
+                print(f"staged {staged['files']} file(s), "
+                      f"{staged['bytes'] / 1e6:.1f} MB -> {staged['dir']}")
+                print(f"upload it with: kaggle datasets create -p {staged['dir']} -r zip")
+                return 0
+            result = kg.push_repo(message=args.message, stage=Path(args.stage))
+        except kg.KaggleError as exc:
+            print(f"mk kaggle: {exc}", file=sys.stderr)
+            return 1
+        print(
+            f"{'created' if result['created'] else 'versioned'} {result['ref']}: "
+            f"{result['files']} file(s), {result['bytes'] / 1e6:.1f} MB"
+        )
+        print(result["output"])
+        print(
+            "The notebook attaches this by version. Bump the version in "
+            "kaggle/kernel-metadata.json's dataset_sources before `mk kaggle "
+            "push`, or the run will use the old code."
+        )
+        return 0
+
+    try:
+        if args.kaggle_command == "push":
+            result = kg.push()
+            print(f"pushed {result['ref']} at {result['at']}")
+            print(result["output"])
+            return 0
+        if args.kaggle_command == "status":
+            state = kg.status()
+            print(f"{state['ref']}  {state['status']}")
+            print(state["message"])
+            return 0 if state["status"] == "complete" else 1
+        if args.kaggle_command == "pull":
+            report = kg.pull(Path(args.dest), expect_shards=args.shards)
+            print(f"pulled {report['ref']} -> {report['dir']}")
+            for name in report["files"]:
+                print(f"  {name}")
+            print(f"{len(report['shards'])} shard(s), digests verified")
+            print("Hand them to `mk merge`; it refuses a missing shard.")
+            return 0
+    except kg.KaggleError as exc:
+        print(f"mk kaggle: {exc}", file=sys.stderr)
+        return 1
+    return 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1214,8 +1546,11 @@ def build_parser() -> argparse.ArgumentParser:
     suite.add_argument(
         "--dataset",
         required=True,
-        choices=["benign", "batch_a", "batch_b"],
-        help="benign (25 tasks, no payload) or a batch of 105 attack cases",
+        choices=list(DATASET_CHOICES),
+        help=(
+            "benign (25 tasks, no payload), a hand-written batch of 105 attack "
+            "cases, or one of the generated three"
+        ),
     )
     suite.add_argument(
         "--config",
@@ -1250,6 +1585,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="where to write the JSONL (default runs/<suite_id>.jsonl)",
     )
     suite.add_argument(
+        "--shard",
+        default=None,
+        metavar="i/n",
+        help=(
+            "run only shard i of n, one-based. The split is a contiguous block "
+            "of the frozen corpus order, so shard 3 of 8 is always the same "
+            "cases. Shards are separate processes — `mk suite` refuses to run "
+            "twice in one — and `mk merge` puts them back together and refuses "
+            "if one is missing"
+        ),
+    )
+    suite.add_argument(
+        "--reason",
+        default=None,
+        help="why a sealed batch is being opened. Required for batch_b and gen_b",
+    )
+    suite.add_argument(
+        "--override",
+        action="store_true",
+        help="open a sealed batch again; logged as an override",
+    )
+    suite.add_argument(
+        "--join",
+        action="store_true",
+        help=(
+            "this shard runs under an opening already on record. Cannot be the "
+            "first read of a sealed batch; logged as a join so the read still "
+            "leaves a trace"
+        ),
+    )
+    suite.add_argument(
         "--quiet", action="store_true", help="summary only, no line per case"
     )
     suite.set_defaults(func=cmd_suite)
@@ -1266,7 +1632,7 @@ def build_parser() -> argparse.ArgumentParser:
     matrix.add_argument(
         "--dataset",
         action="append",
-        choices=["benign", "batch_a", "batch_b"],
+        choices=list(DATASET_CHOICES),
         default=None,
         help="repeatable; default: benign and batch_a",
     )
@@ -1313,7 +1679,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     ablate.add_argument(
-        "--dataset", default="batch_a", choices=["batch_a", "batch_b"]
+        "--dataset", default="batch_a", choices=["batch_a", "batch_b", "gen_a", "gen_b"]
     )
     ablate.add_argument(
         "--check",
@@ -1348,8 +1714,143 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument(
         "--ablation", default=None, help="a directory left by `mk ablate`"
     )
+    report.add_argument(
+        "--generated",
+        default=None,
+        help=(
+            "a directory of merged generated suites (from `mk merge`). Their "
+            "tables go beside the hand-written ones, never over them"
+        ),
+    )
     report.add_argument("--out", default=None, help="default ./results.md")
     report.set_defaults(func=cmd_report)
+
+    report_generated = sub.add_parser(
+        "report-generated",
+        help="splice the generated-corpus section into an existing results.md",
+        description=(
+            "Needs no matrix. The section lives between fences and is replaced "
+            "in place, so the hand-written tables — and the batch B opening "
+            "they were measured under — do not move."
+        ),
+    )
+    report_generated.add_argument(
+        "merged", help="a directory of merged generated suites, from `mk merge`"
+    )
+    report_generated.add_argument(
+        "--config",
+        action="append",
+        choices=list(CONFIG_CHOICES),
+        default=None,
+        help=f"repeatable; default: all of {', '.join(CONFIG_CHOICES)}",
+    )
+    report_generated.add_argument(
+        "--hosted",
+        default=None,
+        help=(
+            "a second directory of merged suites over the same corpus, from a "
+            "different machine. The two are compared case by case and the "
+            "comparison is printed — the one claim in the document that needs "
+            "a second machine to make at all"
+        ),
+    )
+    report_generated.add_argument("--out", default=None, help="default ./results.md")
+    report_generated.set_defaults(func=cmd_report_generated)
+
+    merge = sub.add_parser(
+        "merge",
+        help="reassemble a sharded run into one JSONL and one metadata file",
+        description=(
+            "Refuses a merge across two corpora, a merge with a shard missing "
+            "and a merge with a case in it twice. Percentiles are pooled over "
+            "the pooled calls and intervals are recomputed on the pooled n."
+        ),
+    )
+    merge.add_argument("files", nargs="+", help="the shards' JSONL files")
+    merge.add_argument("--out", default=None, help="where to write the merged JSONL")
+    merge.set_defaults(func=cmd_merge)
+
+    generate = sub.add_parser(
+        "generate",
+        help="build the generated corpus from the pinned Kaggle datasets",
+        description=(
+            "Regenerating re-signs every mandate and moves the generated "
+            "corpus hash, so every generated table in results.md becomes "
+            "stale. Hence --force."
+        ),
+    )
+    generate_sub = generate.add_subparsers(dest="generate_command", required=True)
+    generate_corpus = generate_sub.add_parser(
+        "corpus", help="storefront, benign tasks, both attack batches, signed and frozen"
+    )
+    generate_corpus.add_argument("--force", action="store_true")
+    generate_corpus.add_argument("--seed", default="p8")
+    generate_corpus.set_defaults(func=cmd_generate)
+
+    kaggle = sub.add_parser(
+        "kaggle",
+        help="pull the pinned datasets, or push/watch/fetch the hosted run",
+        description=(
+            "Credentials are read by the official CLI from ~/.kaggle/kaggle.json. "
+            "Nothing here opens that file and nothing here prints it."
+        ),
+    )
+    kaggle_sub = kaggle.add_subparsers(dest="kaggle_command", required=True)
+    kaggle_datasets = kaggle_sub.add_parser(
+        "datasets", help="check the pinned datasets against their digests"
+    )
+    kaggle_datasets.add_argument(
+        "--pull", action="store_true", help="download them first"
+    )
+    kaggle_datasets.set_defaults(func=cmd_kaggle)
+    kaggle_check = kaggle_sub.add_parser(
+        "check",
+        help="preflight: CLI, credentials, and whether the push would be accepted",
+        description=(
+            "Answers every reason a push would fail before anything uploads. "
+            "Kaggle refuses a push whose owner is not the authenticated "
+            "account, and finding that out after the dataset has been created "
+            "is the expensive order to find it out in."
+        ),
+    )
+    kaggle_check.set_defaults(func=cmd_kaggle)
+    kaggle_repo = kaggle_sub.add_parser(
+        "repo",
+        help="push the repository itself as the dataset the notebook attaches",
+        description=(
+            "Uploads a staged copy built from an explicit include list, so "
+            "data/ (other people's datasets) and runs/ (the output this is "
+            "meant to produce) cannot go by accident."
+        ),
+    )
+    kaggle_repo.add_argument(
+        "--message", default="mandate repo", help="the dataset version message"
+    )
+    kaggle_repo.add_argument(
+        "--stage", default="runs/kaggle-stage", help="where to build the copy"
+    )
+    kaggle_repo.add_argument(
+        "--stage-only",
+        action="store_true",
+        help="build the copy and stop, without uploading",
+    )
+    kaggle_repo.set_defaults(func=cmd_kaggle)
+    kaggle_push = kaggle_sub.add_parser(
+        "push", help="send the committed notebook and kernel-metadata.json"
+    )
+    kaggle_push.set_defaults(func=cmd_kaggle)
+    kaggle_status = kaggle_sub.add_parser(
+        "status", help="the kernel's last run; non-zero unless it completed"
+    )
+    kaggle_status.set_defaults(func=cmd_kaggle)
+    kaggle_pull = kaggle_sub.add_parser(
+        "pull", help="fetch the output and verify its digests"
+    )
+    kaggle_pull.add_argument("--dest", default="runs/kaggle")
+    kaggle_pull.add_argument(
+        "--shards", type=int, default=None, help="how many shards to insist on"
+    )
+    kaggle_pull.set_defaults(func=cmd_kaggle)
 
     corpus = sub.add_parser(
         "corpus", help="count the corpus and check the manifest hash has not moved"

@@ -54,13 +54,15 @@ from typing import Any
 
 from harness.corpus import (
     CLASSES,
-    batch_b_is_open,
+    SEALED_BATCHES,
+    batch_is_open,
     batch_b_openings,
     list_batch,
     list_tasks,
     load_attack,
+    openings,
 )
-from harness.manifest import current_hash, verify_manifest
+from harness.manifest import hash_for_dataset, verify_all
 from harness.runner import (
     RunRecord,
     check_config,
@@ -68,10 +70,13 @@ from harness.runner import (
     run_case,
     run_id_for,
 )
+from harness.shard import Shard, slice_for
 from kernel.canonical import sha256_of
 
 __all__ = [
     "DATASETS",
+    "DATASET_BATCH",
+    "DATASET_CORPUS",
     "RUNS_DIR",
     "SuiteAlreadyRunning",
     "SuiteCase",
@@ -90,7 +95,38 @@ RUNS_DIR = REPO_ROOT / "runs"
 #: The selectable datasets, and what each one is for. ``benign`` is where the
 #: benign-utility, false-block and overhead numbers come from; the batches are
 #: where ASR comes from.
-DATASETS: tuple[str, ...] = ("benign", "batch_a", "batch_b")
+#:
+#: The three ``gen_*`` datasets are the P8 generated corpus and are listed
+#: **beside** the hand-written three rather than replacing them: the published
+#: hand-written tables are measured against a corpus and a manifest hash that
+#: have not moved, and issue #68 is explicit that the generated tables go
+#: beside them, not over them.
+DATASETS: tuple[str, ...] = (
+    "benign",
+    "batch_a",
+    "batch_b",
+    "gen_benign",
+    "gen_a",
+    "gen_b",
+)
+
+#: Which batch each attack dataset draws from.
+DATASET_BATCH: dict[str, str] = {
+    "batch_a": "a",
+    "batch_b": "b",
+    "gen_a": "gen-a",
+    "gen_b": "gen-b",
+}
+
+#: Which task corpus each dataset's tasks come from.
+DATASET_CORPUS: dict[str, str] = {
+    "benign": "handwritten",
+    "batch_a": "handwritten",
+    "batch_b": "handwritten",
+    "gen_benign": "generated",
+    "gen_a": "generated",
+    "gen_b": "generated",
+}
 
 #: Held while a suite is running. Not a re-entrancy nicety: it is how "cases
 #: run in sequence, parallelism across runs only" is enforced rather than
@@ -143,6 +179,11 @@ class SuiteResult:
     #: suite is **not** deleted — the lines are still evidence of something —
     #: but it may not be published, and this says why.
     corpus_drift: list[str] = field(default_factory=list)
+    #: Which slice of the dataset this process ran, when it ran one.
+    #: ``None`` means the whole dataset. Carried into the metadata because the
+    #: merge step refuses a run with a shard missing, and it can only do that
+    #: if each file says which shard it is.
+    shard: Shard | None = None
 
     # -- the counts ``results.md`` is built from ---------------------------
 
@@ -225,6 +266,46 @@ class SuiteResult:
             "sequential": True,
             "disabled_checks": sorted(self.disabled_checks),
             "batch_b_openings": len(batch_b_openings()),
+            "openings": [
+                {"batch": e["batch"], "at": e["at"], "override": e["override"]}
+                for e in openings()
+            ],
+            "shard": (
+                {"index": self.shard.index, "count": self.shard.count}
+                if self.shard is not None
+                else None
+            ),
+            # One containment record for the whole suite, folded from the
+            # per-run ones. ``results.md`` states the claim over a table, and a
+            # claim over a table needs a number over a table.
+            "containment": self.containment(),
+        }
+
+    def containment(self) -> dict[str, Any]:
+        """What the guard saw across every run in this suite (REQ-10).
+
+        Folded here rather than recomputed by the reporter, because a shard's
+        output is the only place its containment record exists: the merged run
+        record keeps each shard's, and a shard whose guard was not armed has to
+        be visible as such rather than averaged away.
+        """
+        armed = [r for r in self.records if r.containment.get("enforced")]
+        hosts: set[str] = set()
+        for record in armed:
+            hosts.update(record.containment.get("allowed_hosts", []))
+        return {
+            "runs": len(self.records),
+            "armed": len(armed),
+            "non_local_blocked": sum(
+                int(r.containment.get("non_local_blocked", 0)) for r in armed
+            ),
+            "non_local_allowed": sum(
+                int(r.containment.get("non_local_allowed", 0)) for r in armed
+            ),
+            "allowed_hosts": sorted(hosts),
+            "model_endpoint_allowed": any(
+                r.containment.get("model_endpoint_allowed") for r in armed
+            ),
         }
 
 
@@ -234,6 +315,7 @@ def select(
     attack_class: str | None = None,
     task: str | None = None,
     limit: int | None = None,
+    shard: Shard | None = None,
 ) -> list[SuiteCase]:
     """The plan for one suite, in a fixed order.
 
@@ -254,16 +336,16 @@ def select(
         raise ValueError(f"unknown class {attack_class!r}; known: {list(CLASSES)}")
 
     cases: list[SuiteCase]
-    if dataset == "benign":
+    if dataset not in DATASET_BATCH:
         if attack_class is not None:
             raise ValueError(
-                "the benign suite has no attack classes; it is the arm with no "
+                "a benign suite has no attack classes; it is the arm with no "
                 "payload anywhere, and filtering it by class would silently "
                 "select nothing"
             )
-        cases = [SuiteCase(task_id=t) for t in list_tasks()]
+        cases = [SuiteCase(task_id=t) for t in list_tasks(DATASET_CORPUS[dataset])]
     else:
-        batch = dataset.removeprefix("batch_")
+        batch = DATASET_BATCH[dataset]
         cases = []
         for case_id in list_batch(batch):
             case = load_attack(case_id)
@@ -273,11 +355,16 @@ def select(
 
     if task is not None:
         cases = [c for c in cases if c.task_id == task]
+    if shard is not None:
+        # Sliced *after* every other filter and before the limit, so
+        # ``--class A1 --shard 2/4`` is a quarter of the A1 cases rather than
+        # the A1 cases inside a quarter of the corpus.
+        cases = slice_for(cases, shard)
     if not cases:
         raise ValueError(
             f"no cases selected from {dataset!r} with "
-            f"class={attack_class!r} task={task!r}; an empty suite would "
-            "produce an empty table that reads like a perfect score"
+            f"class={attack_class!r} task={task!r} shard={shard}; an empty "
+            "suite would produce an empty table that reads like a perfect score"
         )
     return cases[:limit] if limit else cases
 
@@ -324,7 +411,7 @@ def _now() -> str:
 
 
 def _failed_record(
-    case: SuiteCase, *, config: str, seed: str, model: str, error: str
+    case: SuiteCase, *, config: str, seed: str, model: str, error: str, manifest: str
 ) -> RunRecord:
     """A line for a case that never produced one.
 
@@ -350,7 +437,7 @@ def _failed_record(
         plan={},
         error=error,
         notes=["the case did not run; it is counted in the denominator and scored in neither column"],
-        corpus_manifest=current_hash(),
+        corpus_manifest=manifest,
     )
 
 
@@ -365,6 +452,7 @@ def run_suite(
     cassette: Path | None = None,
     faults: list[dict[str, Any]] | None = None,
     disabled_checks: tuple[int, ...] = (),
+    shard: Shard | None = None,
     progress: Callable[[int, int, RunRecord], None] | None = None,
 ) -> SuiteResult:
     """Run every case in sequence and stream one JSONL line each.
@@ -384,22 +472,22 @@ def run_suite(
     # seal on case one would leave a JSONL of a hundred identical errors, and
     # opening the batch is a decision with its own log — not something a suite
     # runner gets to make on the caller's behalf.
-    if dataset == "batch_b" and not batch_b_is_open():
+    batch = DATASET_BATCH.get(dataset)
+    if batch in SEALED_BATCHES and not batch_is_open(batch):
         raise RuntimeError(
-            "batch B is sealed and this suite would read its payloads. It is "
-            "the held-out set and the headline number comes from it, so it is "
-            "opened explicitly and the opening is logged: call "
-            "harness.corpus.open_batch_b(reason=...) first."
+            f"batch {batch!r} is sealed and this suite would read its "
+            "payloads. It is a held-out set and a headline number comes from "
+            "it, so it is opened explicitly and the opening is logged: call "
+            f"harness.corpus.open_batch({batch!r}, reason=...) first."
         )
 
-    manifest, drift = verify_manifest()
+    drift = verify_all()
     if drift:
         raise RuntimeError(
-            "the corpus does not match harness/manifest.json, so no number "
-            "from this suite could be published (REQ-11):\n  "
-            + "\n  ".join(drift)
+            "a corpus does not match its manifest, so no number from this "
+            "suite could be published (REQ-11):\n  " + "\n  ".join(drift)
         )
-    manifest = current_hash()
+    manifest = hash_for_dataset(dataset)
 
     suite_id = _suite_id(
         plan,
@@ -433,6 +521,7 @@ def run_suite(
         meta_path=path.with_suffix(".meta.json"),
         started_at=_now(),
         disabled_checks=tuple(disabled_checks),
+        shard=shard,
     )
 
     if not _RUNNING.acquire(blocking=False):
@@ -468,6 +557,7 @@ def run_suite(
                         seed=seed,
                         model=model,
                         error=f"{type(exc).__name__}: {exc}",
+                        manifest=manifest,
                     )
                 handle.write(record.to_json() + "\n")
                 handle.flush()
@@ -480,8 +570,7 @@ def run_suite(
     # The corpus is hashed once per process, so every line above quotes the
     # hash taken before case one. This is the check that the quote is still
     # true — an edit made mid-suite is invisible to the lines and visible here.
-    _, drift = verify_manifest()
-    result.corpus_drift = drift
+    result.corpus_drift = verify_all()
     result.finished_at = _now()
     result.meta_path.write_text(json.dumps(result.summary(), indent=2, sort_keys=True) + "\n")
     return result

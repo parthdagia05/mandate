@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00078CH0KFJ2DJGPTV",
+  "parent": "im_01KDVDNA0082GX4Y7JRB12MR6X",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-BALEYMGA-FZF2",
+      "qty": 1,
+      "unit_amount": 99900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 103900,
+  "currency": "INR",
+  "cart_hash": "sha256:82fa1641c212f058050311b811a925e58b659cc86b88c9ee62bfc91f2d747b71",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 150000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "75F7ST0kMRRAuQksBeu3XZ2ym0wORlh_sHsUChu4z4hKz29FKLbdh1ah1aPPKvX2l0lu1_TVTf9oxnAJLbc-QQ"
+}

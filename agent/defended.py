@@ -57,7 +57,6 @@ from agent.llm import MAX_FURTHER_PAYMENTS, ModelClient, Reply, Turn
 from agent.planner import STEP_TOOLS, SYSTEM_PROMPT, PlanResult
 from agent.provenance import FieldAdmissionError, TaintLedger
 from agent.tools import UndefendedTools
-from sim.merchants.shopkart import CATALOGUE
 
 __all__ = ["PLAN_STEPS", "DefendedAgent", "plan_for"]
 
@@ -211,10 +210,11 @@ class DefendedAgent:
 
         # 1. Search.
         catalogue = self.tools.search_catalog(task["query"])
+        known = self.tools.known_products()
         candidates = {
-            sku: CATALOGUE[sku][0]
+            sku: known[sku]
             for sku in catalogue.data.get("skus", [])
-            if sku in CATALOGUE
+            if sku in known
         }
         chosen = self._ask(
             "choose_product", {"wanted": task["wants"], "candidates": candidates}
@@ -411,7 +411,7 @@ class DefendedAgent:
             {
                 "state": status.data.get("state", ""),
                 "amount_due": status.data.get("amount_due", 0),
-                "known_skus": {sku: entry[1] for sku, entry in CATALOGUE.items()},
+                "known_skus": self.tools.known_prices(),
             },
         )
         decided = self._ask(
@@ -431,7 +431,7 @@ class DefendedAgent:
                     for payment in self.tools.settled
                 ],
                 "line_items": result.line_items,
-                "known_skus": {sku: entry[1] for sku, entry in CATALOGUE.items()},
+                "known_skus": self.tools.known_prices(),
             },
         )
         result.steps.append(

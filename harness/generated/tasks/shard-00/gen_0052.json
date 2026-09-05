@@ -1,0 +1,54 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 63400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "BBAEDVYSEN75YZZ7"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0052.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0052.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "pearls india leather bracelet",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-BBAEDVYS-EN75",
+  "task_id": "gen-0052",
+  "utterance": "Please buy the Pearls India Leather Bracelet from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "pearls india leather bracelet"
+}

@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00PXC0XVETX87CC38T",
+  "parent": "im_01KDVDNA00HSHS13M9QR6D6GE8",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-DREECHUG-PVDQ",
+      "qty": 1,
+      "unit_amount": 199500
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 203500,
+  "currency": "INR",
+  "cart_hash": "sha256:46df5bfedb281b6a63d1a838ffc441159826fade3ee5724172b091041bc325ed",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "JY0pJsoXJZLralVWl4osfSjUO81LlMh8XFwk-159NueqXHpVRYSWQYNi7-Tsg7Kvyrbbbf7Dqrd9s-GtiMNbfA"
+}

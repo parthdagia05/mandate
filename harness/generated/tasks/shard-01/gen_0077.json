@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 165400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BRFECHUF-KHVY",
+      "unit_amount": 41500
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "BRAE5VAWWRZGG3Z9"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0077.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0077.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "tia by ten on",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-BRAE5VAW-WRZG",
+  "task_id": "gen-0077",
+  "utterance": "I want the Tia by Ten on Ten Floral Women's Push-up Bra from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "tia by ten on ten floral women's push-up bra"
+}

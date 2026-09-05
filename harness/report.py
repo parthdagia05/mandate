@@ -251,8 +251,15 @@ def render_results(
     *,
     ablation: AblationResult | None = None,
     configs: Sequence[str] | None = None,
+    generated: Any | None = None,
 ) -> str:
-    """The whole document, as one string."""
+    """The whole document, as one string.
+
+    ``generated`` is a :class:`~harness.report_generated.GeneratedRun`. Its
+    tables are appended as their own section and its caveats are folded into
+    *What these numbers do not say* — beside the hand-written tables, never over
+    them. Passing ``None`` produces exactly the document M6 produced.
+    """
     configs = list(configs or [c for c in matrix.configs])
     lines: list[str] = []
     add = lines.append
@@ -624,6 +631,12 @@ def render_results(
     if ablation is not None:
         lines.extend(render_ablation(ablation).splitlines())
 
+    # -- the generated corpus ---------------------------------------------
+    if generated is not None:
+        from harness.report_generated import render_generated
+
+        lines.extend(render_generated(generated))
+
     # -- containment ------------------------------------------------------
     add("## Containment")
     add("")
@@ -693,9 +706,10 @@ def render_results(
         "read — what is prevented is a *silent* one."
     )
     add(
-        "- **n is 15 per class.** Every interval in this document is wide. Two "
-        "columns whose intervals overlap have not been shown to differ, and "
-        "several pairs here overlap."
+        "- **n is 15 per class in the hand-written tables.** Every interval in "
+        "those tables is wide. Two columns whose intervals overlap have not "
+        "been shown to differ, and several pairs above overlap. The generated "
+        "tables are the answer to that and carry their own caveats."
     )
     add(
         "- **The agent-side guard is not the contribution and is not counted as "
@@ -715,6 +729,10 @@ def render_results(
         "audit chain did not verify is discarded rather than counted as a "
         "defended one."
     )
+    if generated is not None:
+        from harness.report_generated import generated_caveats
+
+        lines.extend(generated_caveats(generated))
     add("")
     return "\n".join(lines) + "\n"
 

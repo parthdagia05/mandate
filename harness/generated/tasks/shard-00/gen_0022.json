@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 43900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCEGCAVVG6GQ8P5"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0022.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0022.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "frenemy mpad389 mousepad",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACCEGCAV-VG6G",
+  "task_id": "gen-0022",
+  "utterance": "Please buy the FRENEMY MPAD389 Mousepad from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "frenemy mpad389 mousepad"
+}

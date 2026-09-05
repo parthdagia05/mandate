@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 32900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "ACKEGXT8CAKTCGHU"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0030.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0030.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "tootpado spring back, size",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACKEGXT8-CAKT",
+  "task_id": "gen-0030",
+  "utterance": "Pick up the Tootpado Spring Back, Size 5.5x5.5 Inch, Craft Paper - 10 Designs 40 Sheets For Card & Scrapbooking from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "tootpado spring back, size 5.5x5.5 inch, craft paper - 10 designs 40 sheets for card & scrapbooking"
+}

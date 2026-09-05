@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 253800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-ACCE6SJG-YPXK",
+      "unit_amount": 149900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCEKFVWTZPD5HPT"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0029.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0029.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "furst usb adapter with",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-ACCEKFVW-TZPD",
+  "task_id": "gen-0029",
+  "utterance": "Pick up the Furst USB Adapter with Cable For Lnvo Sisley S90 Battery Charger from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "furst usb adapter with cable for lnvo sisley s90 battery charger"
+}

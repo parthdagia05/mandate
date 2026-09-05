@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00XCTSWXK8A5P2W09P",
+  "parent": "im_01KDVDNA00P43F0DJRN58VPY7N",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-POSEH89G-4KTU",
+      "qty": 1,
+      "unit_amount": 59900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 63900,
+  "currency": "INR",
+  "cart_hash": "sha256:8673d681faa52a5fba450a7ca1365967e4c15668d30e2a69ff89d224eedb0c99",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "pNRPPZC4YlkMuSl-KNDcOkIWauU66pLV0b-mui5XeD7OUV87ifeAI3RERIS2m2mJPIKMQxbSrbhlO7hOrRcugg"
+}

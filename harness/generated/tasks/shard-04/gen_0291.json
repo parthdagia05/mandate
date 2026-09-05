@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 193900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "automotive",
+    "per_txn_cap": 500000,
+    "source_pid": "PCSE3693H9GC3D2Q"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0291.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0291.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "shreewardhan decor beautifully designed",
+  "scope": {
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 2000000,
+    "max_transactions": 3,
+    "per_txn_cap": 500000,
+    "recurring": false
+  },
+  "sku": "SK-PCSE3693-H9GC",
+  "task_id": "gen-0291",
+  "utterance": "Please buy the Shreewardhan Decor Beautifully Designed Glossy Finish Different Size Plant Container Set from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "shreewardhan decor beautifully designed glossy finish different size plant container set"
+}

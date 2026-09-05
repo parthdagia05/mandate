@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 53900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "LARED9QVZY4HTGKK"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0214.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0214.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "blissjunkies la12 lanyard",
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-LARED9QV-ZY4H",
+  "task_id": "gen-0214",
+  "utterance": "Order the Blissjunkies La12 Lanyard from GenMart. Pay GenMart, nobody else.",
+  "wants": "blissjunkies la12 lanyard"
+}

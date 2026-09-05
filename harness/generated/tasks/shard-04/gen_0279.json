@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 14000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "PAEE8EZHZFKKYMVK"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0279.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0279.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "divine tree sd13 seed",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-PAEE8EZH-ZFKK",
+  "task_id": "gen-0279",
+  "utterance": "Pick up the Divine Tree SD13 Seed from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "divine tree sd13 seed"
+}

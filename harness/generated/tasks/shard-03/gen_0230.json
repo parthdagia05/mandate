@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 53900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "MUGEAGGKZFGYHZ4Y"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0230.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0230.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "rockmantra night city ceramic",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-MUGEAGGK-ZFGY",
+  "task_id": "gen-0230",
+  "utterance": "Get me the Rockmantra Night City Ceramic Mug on GenMart, delivery included, and pay GenMart.",
+  "wants": "rockmantra night city ceramic mug"
+}

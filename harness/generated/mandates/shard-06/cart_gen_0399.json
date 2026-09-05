@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA009SYDDBM1GW22Z1N1",
+  "parent": "im_01KDVDNA0048HKRZX02GDBE3E6",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-SHTEBS8Z-RBGG",
+      "qty": 1,
+      "unit_amount": 69500
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 73500,
+  "currency": "INR",
+  "cart_hash": "sha256:7b710b192c1e6a5e53933fe703072bfacb60c5f9134884fbcfa855fb8f224054",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "u-oDhSDx8Um3TYmf7RCsp7RMJNsoqs0MW1NO-frmHHdhSgTE0Vjrf5X6Py2l_JeiQLgmTG3VaIpKJUwnhsENrA"
+}

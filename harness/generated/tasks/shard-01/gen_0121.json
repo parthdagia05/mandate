@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 144000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIE9UGK-9B9B",
+      "unit_amount": 120000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "CPCE5YKSD8HVN6NG"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0121.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0121.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "adt saral printed cushions",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-CPCE5YKS-D8HV",
+  "task_id": "gen-0121",
+  "utterance": "Pick up the Adt Saral Printed Cushions Cover from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "adt saral printed cushions cover"
+}

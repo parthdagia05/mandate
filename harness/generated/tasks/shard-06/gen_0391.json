@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 143900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "SHTE8BFQ6HKZUPQK"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-06/cart_gen_0391.json",
+    "intent": "harness/generated/mandates/shard-06/intent_gen_0391.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "kiosha women's printed casual",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-SHTE8BFQ-6HKZ",
+  "task_id": "gen-0391",
+  "utterance": "Please buy the Kiosha Women's Printed Casual Shirt from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "kiosha women's printed casual shirt"
+}

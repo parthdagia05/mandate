@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "BRAEDH76SYADSDNZ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0091.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0091.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "madaam sports bra women's",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-BRAEDH76-SYAD",
+  "task_id": "gen-0091",
+  "utterance": "Order the Madaam Sports Bra Women's Full Coverage Bra from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "madaam sports bra women's full coverage bra"
+}

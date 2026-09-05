@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 413400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-LTBE4HAW-XFCX",
+      "unit_amount": 289500
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "HMBEGER3YJWZ3A22"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0189.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0189.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "butterfiles shoulder bag",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-HMBEGER3-YJWZ",
+  "task_id": "gen-0189",
+  "utterance": "Buy me the BUTTERFILES Shoulder Bag on GenMart with delivery. The payee is GenMart.",
+  "wants": "butterfiles shoulder bag"
+}

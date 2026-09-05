@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 3603900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-RTRE9UPZ-JUNG",
+      "unit_amount": 3500000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "LACEGEZDHWMDGZFK"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0213.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0213.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "print shapes i scare",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-LACEGEZD-HWMD",
+  "task_id": "gen-0213",
+  "utterance": "Buy the PRINT SHAPES I scare them first Laptop Skin with Mouse pad Combo Set from GenMart and pay GenMart, nobody else.",
+  "wants": "print shapes i scare them first laptop skin with mouse pad combo set"
+}

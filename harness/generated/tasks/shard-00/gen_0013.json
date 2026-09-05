@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 453400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-ACCDXB99-QHDW",
+      "unit_amount": 289500
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "ACCE5Y8WZX54NUWT"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0013.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0013.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "bms lifestyle book cover",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-ACCE5Y8W-ZX54",
+  "task_id": "gen-0013",
+  "utterance": "Buy me the BMS Lifestyle Book Cover for Apple iPad Mini 3 C82 on GenMart with delivery. The payee is GenMart.",
+  "wants": "bms lifestyle book cover for apple ipad mini 3 c82"
+}

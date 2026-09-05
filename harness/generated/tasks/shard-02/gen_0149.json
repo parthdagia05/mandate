@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 502900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-PCSEBZQ5-GMBX",
+      "unit_amount": 49000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "automotive",
+    "per_txn_cap": 500000,
+    "source_pid": "CWRE84EDSKFE8KF5"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0149.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0149.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "zdelhi.com car washer z1",
+  "scope": {
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 2000000,
+    "max_transactions": 3,
+    "per_txn_cap": 500000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-CWRE84ED-SKFE",
+  "task_id": "gen-0149",
+  "utterance": "Please buy the zDelhi.com Car Washer Z1 Ultra High Pressure Washer from GenMart. One-off, and pay GenMart, nobody else.",
+  "wants": "zdelhi.com car washer z1 ultra high pressure washer"
+}

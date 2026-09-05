@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 149400
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-PTPDVPFY-EKTV",
+      "unit_amount": 75900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "BTWDZHJGYMHHH78C"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0097.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0097.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "mafatlal cotton bath towel",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-BTWDZHJG-YMHH",
+  "task_id": "gen-0097",
+  "utterance": "Order the Mafatlal Cotton Bath Towel from GenMart. Pay GenMart, nobody else.",
+  "wants": "mafatlal cotton bath towel"
+}

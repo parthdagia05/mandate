@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00JA2DS9MN6Y65FXA4",
+  "parent": "im_01KDVDNA00M9MWB3MQVXCGCQ0G",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-HIFEB7J3-RCFH",
+      "qty": 1,
+      "unit_amount": 649900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 653900,
+  "currency": "INR",
+  "cart_hash": "sha256:d08d816130ad37b31cccc78603fbd09c017af2e560d9938635a6b2eec42a501a",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "TaVdLxBbIKZmTI6swTnj1I9moxmvXxAgMlhCRGNXumE1lwtTROU4Jyc1q8XGWlIaCG-oyEzHZOsahgN0NalOIg"
+}

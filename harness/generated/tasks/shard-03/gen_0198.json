@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 118900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "JEAEHYN8MJW4J2BP"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0198.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0198.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "sls slim fit women's",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-JEAEHYN8-MJW4",
+  "task_id": "gen-0198",
+  "utterance": "Get me the SLS Slim Fit Women's Blue Jeans on GenMart, delivery included, and pay GenMart.",
+  "wants": "sls slim fit women's blue jeans"
+}

@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA0091F8C9DS6JKWW22A",
+  "parent": "im_01KDVDNA009FP0RN76D31G8RXG",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-RNGE7M92-VPHQ",
+      "qty": 1,
+      "unit_amount": 2130800
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 2134800,
+  "currency": "INR",
+  "cart_hash": "sha256:a1f09d354abe984eee55de7a23bf6329a8530b111feea07f20e39b239b0bbea7",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 3550000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "bFVB3souca5BMkmXZf4UqrqWuZqYVAgqn3PN1B8yBehA0u6PfK-JWI_ie5I62JpBxpvn4JQJWqDXW3ku8xG5bw"
+}

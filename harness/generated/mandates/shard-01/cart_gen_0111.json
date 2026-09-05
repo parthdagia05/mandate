@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00KN882BE3JN83Y1F9",
+  "parent": "im_01KDVDNA00M8VSJYASQPD3R6JY",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-CAGEBTJB-NDAJ",
+      "qty": 1,
+      "unit_amount": 39000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 43000,
+  "currency": "INR",
+  "cart_hash": "sha256:d91d2a93f5a0ef8564c9508ad926357381feeef28e1015717234f3a5023af311",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 300000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "An_GRi0PI4GILejFuIRRYjLNCYARUzpYPYtNU8BgHk_imz6h_NsrFdgyp00EWw4-EIc0OgsbUAY4sG0Nq7aCPA"
+}

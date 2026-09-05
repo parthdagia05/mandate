@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 223900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "SHIEBPPVHHH8Z3KE"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0356.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0356.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "kalabhawan stair sculpture showpiece",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SHIEBPPV-HHH8",
+  "task_id": "gen-0356",
+  "utterance": "I want the KalaBhawan Stair Sculpture Showpiece - 39 cm from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "kalabhawan stair sculpture showpiece - 39 cm"
+}

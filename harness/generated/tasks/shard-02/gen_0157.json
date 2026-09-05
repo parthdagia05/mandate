@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 283800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-JUMEGDXP-KGX2",
+      "unit_amount": 149900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "DREE7NMEMZRGT9DM"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0157.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0157.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "meiro women's peplum dress",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-DREE7NME-MZRG",
+  "task_id": "gen-0157",
+  "utterance": "I want the Meiro Women's Peplum Dress from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "meiro women's peplum dress"
+}

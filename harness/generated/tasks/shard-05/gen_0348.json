@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 68500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "SHIE2RYNGJXSNCWX"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0348.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0348.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "chrome showpiece - 20",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-SHIE2RYN-GJXS",
+  "task_id": "gen-0348",
+  "utterance": "Get me the Chrome Showpiece - 20 cm on GenMart, delivery included, and pay GenMart.",
+  "wants": "chrome showpiece - 20 cm"
+}

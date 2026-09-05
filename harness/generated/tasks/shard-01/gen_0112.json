@@ -1,0 +1,54 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 37000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CAGED6GKXVK5EZHH"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0112.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0112.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "xlr8 sizzle rage combo",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-CAGED6GK-XVK5",
+  "task_id": "gen-0112",
+  "utterance": "Buy the Xlr8 Sizzle Rage Combo Set from GenMart and pay GenMart, nobody else.",
+  "wants": "xlr8 sizzle rage combo set"
+}

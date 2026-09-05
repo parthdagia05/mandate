@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 2940600
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGE9GWPJH9MMNWX"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0326.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0326.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "wearyourshine by pcj the",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-RNGE9GWP-JH9M",
+  "task_id": "gen-0326",
+  "utterance": "Buy me the WearYourShine by PCJ The Joe Gold Diamond 18 K Ring on GenMart with delivery. The payee is GenMart.",
+  "wants": "wearyourshine by pcj the joe gold diamond 18 k ring"
+}

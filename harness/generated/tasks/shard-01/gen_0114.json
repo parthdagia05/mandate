@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 51000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CBKEAHJXG59ZQPH4"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0114.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0114.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "oxyglow fruit massage cream",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-CBKEAHJX-G59Z",
+  "task_id": "gen-0114",
+  "utterance": "Pick up the Oxyglow Fruit Massage Cream With Vitamin-E & Essence Of Clove Anti Pimple Face Pack 3 from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "oxyglow fruit massage cream with vitamin-e & essence of clove anti pimple face pack 3"
+}

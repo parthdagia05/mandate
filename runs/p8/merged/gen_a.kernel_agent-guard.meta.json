@@ -1,0 +1,254 @@
+{
+  "attacker_wins": 0,
+  "cases": 735,
+  "config": "kernel+agent-guard",
+  "containment": {
+    "allowed_hosts": [],
+    "model_endpoint_allowed": false,
+    "non_local_allowed": 0,
+    "non_local_blocked": 0,
+    "runs": 735,
+    "runs_armed": 735,
+    "shards": 4,
+    "shards_fully_armed": 4
+  },
+  "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+  "dataset": "gen_a",
+  "errors": 0,
+  "latency_us": {
+    "n": 1332,
+    "p50": 1249,
+    "p99": 3030
+  },
+  "model": "auto",
+  "poisoned": 0,
+  "scored": 735,
+  "seed": "0",
+  "shards": [
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": null,
+      "config": "kernel+agent-guard",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_a",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:25:56Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 224,
+        "p50": 1316,
+        "p99": 3297
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_a.kernel_agent-guard.1of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 0
+      },
+      "started_at": "2026-09-05T09:25:55Z",
+      "suite_id": "sha256:9a3c5d44b752817f6be4c93907a645908e3a407f83fd7ecee9122f41e7541d0e",
+      "task_successes": 100
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": null,
+      "config": "kernel+agent-guard",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_a",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:25:58Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 209,
+        "p50": 1288,
+        "p99": 2752
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_a.kernel_agent-guard.2of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 1
+      },
+      "started_at": "2026-09-05T09:25:57Z",
+      "suite_id": "sha256:02395962476c73e58cfd60fe4b123f9654dc2694269a884bb9f937497608a1f7",
+      "task_successes": 63
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 184,
+      "chains": null,
+      "config": "kernel+agent-guard",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 184,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 184
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_a",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:26:00Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 527,
+        "p50": 870,
+        "p99": 2953
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_a.kernel_agent-guard.3of4.jsonl",
+      "scored": 184,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 2
+      },
+      "started_at": "2026-09-05T09:25:58Z",
+      "suite_id": "sha256:f19b9ace73d98fc3fc3d4f19bd971e20682b7dffbf834aacbd08cd46928b99a4",
+      "task_successes": 161
+    },
+    {
+      "attacker_wins": 0,
+      "batch_b_openings": 1,
+      "cases": 183,
+      "chains": null,
+      "config": "kernel+agent-guard",
+      "containment": {
+        "allowed_hosts": [],
+        "armed": 183,
+        "model_endpoint_allowed": false,
+        "non_local_allowed": 0,
+        "non_local_blocked": 0,
+        "runs": 183
+      },
+      "corpus_drift": [],
+      "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "dataset": "gen_a",
+      "disabled_checks": [],
+      "errors": 0,
+      "finished_at": "2026-09-05T09:26:02Z",
+      "host": {
+        "machine": "arm64",
+        "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+        "python": "3.14.6"
+      },
+      "latency_us": {
+        "n": 372,
+        "p50": 986,
+        "p99": 3030
+      },
+      "model": "auto",
+      "openings": [
+        {
+          "at": "2026-08-29T21:05:15Z",
+          "batch": "b",
+          "override": false
+        },
+        {
+          "at": "2026-09-05T09:23:20Z",
+          "batch": "gen-b",
+          "override": false
+        }
+      ],
+      "poisoned": 0,
+      "records": "gen_a.kernel_agent-guard.4of4.jsonl",
+      "scored": 183,
+      "seed": "0",
+      "sequential": true,
+      "shard": {
+        "count": 4,
+        "index": 3
+      },
+      "started_at": "2026-09-05T09:26:01Z",
+      "suite_id": "sha256:3a4c8242a2d926eacc2f56aab3b6713432dbadf2893b0b70685b3947afad46b0",
+      "task_successes": 162
+    }
+  ],
+  "task_successes": 486
+}

@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 498900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-ACCDAHV9-MAHK",
+      "unit_amount": 195000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "RTRDK7TWJB6RCNP9"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0337.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0337.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "lava w200 3g router",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-RTRDK7TW-JB6R",
+  "task_id": "gen-0337",
+  "utterance": "Order the Lava W200 3G Router from GenMart. Pay GenMart, nobody else.",
+  "wants": "lava w200 3g router"
+}

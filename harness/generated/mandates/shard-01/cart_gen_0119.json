@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00VN58F4J8YAVHBAB8",
+  "parent": "im_01KDVDNA00T90DMAJ2FT46PZPY",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-CLDE26U5-N2TS",
+      "qty": 1,
+      "unit_amount": 44900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 48900,
+  "currency": "INR",
+  "cart_hash": "sha256:29e1321908e6c4741129bb8d77b61447583b492dd1cd317dff99fbc900c9b597",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "WopSOtlaGYhy2Kd9Z0Iv4VX14aIXfOz4RdjjD6Da74tXidhZHAQ1jsDG16uUTiuAgk5-D_l8mJpFrKNrM3B9JQ"
+}

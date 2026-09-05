@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 253500
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BBAEE4CB-Q2XX",
+      "unit_amount": 200000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCE8DY7KT53G7GG"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0253.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0253.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "hi look natural semi",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NKCE8DY7-KT53",
+  "task_id": "gen-0253",
+  "utterance": "I want the Hi Look Natural Semi Precious Stone Agate Alloy Necklace from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "hi look natural semi precious stone agate alloy necklace"
+}

@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 53900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "stationery",
+    "per_txn_cap": 250000,
+    "source_pid": "PBXEAT5Y5YSQVE2D"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0287.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0287.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "neo gold leaf fancy",
+  "scope": {
+    "allowed_categories": [
+      "shipping",
+      "stationery"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-PBXEAT5Y-5YSQ",
+  "task_id": "gen-0287",
+  "utterance": "I want the Neo Gold Leaf Fancy School Art Cloth Pencil Box from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "neo gold leaf fancy school art cloth pencil box"
+}

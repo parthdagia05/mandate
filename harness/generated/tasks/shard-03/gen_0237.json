@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 223900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BBAE9YU4-HCTY",
+      "unit_amount": 139900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCDY44FCVDHFMHM"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0237.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0237.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "harp metal necklace",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NKCDY44F-CVDH",
+  "task_id": "gen-0237",
+  "utterance": "I want the Harp Metal Necklace from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "harp metal necklace"
+}

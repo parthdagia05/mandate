@@ -51,6 +51,14 @@ class ShopKart(Merchant):
     merchant_id: str = "shopkart"
     payee_vpa: str = "merchant@upi"
 
+    # -- what the agent knows about the catalogue -------------------------
+
+    def catalogue_names(self) -> dict[str, str]:
+        return {sku: entry[0] for sku, entry in CATALOGUE.items()}
+
+    def catalogue_prices(self) -> dict[str, int]:
+        return {sku: entry[1] for sku, entry in CATALOGUE.items()}
+
     # -- storefront -------------------------------------------------------
 
     def search_catalog(self, query: str) -> MerchantResponse:

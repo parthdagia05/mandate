@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 59000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "BBAE3RFEKUANZSZD"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-00/cart_gen_0038.json",
+    "intent": "harness/generated/mandates/shard-00/intent_gen_0038.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "sj pearls alloy pearl",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-BBAE3RFE-KUAN",
+  "task_id": "gen-0038",
+  "utterance": "Order the SJ Pearls Alloy Pearl Bracelet from GenMart. Pay GenMart, nobody else.",
+  "wants": "sj pearls alloy pearl bracelet"
+}

@@ -1,0 +1,55 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 63800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "personal_care",
+    "per_txn_cap": 300000,
+    "source_pid": "CAGE3GFTPMNXPZAG"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0103.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0103.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "avon little black &",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "personal_care",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1200000,
+    "max_transactions": 3,
+    "per_txn_cap": 300000,
+    "recurring": false
+  },
+  "sku": "SK-CAGE3GFT-PMNX",
+  "task_id": "gen-0103",
+  "utterance": "Order the Avon Little Black & White Dress Body Each 150 ml Combo Set from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "avon little black & white dress body each 150 ml combo set"
+}

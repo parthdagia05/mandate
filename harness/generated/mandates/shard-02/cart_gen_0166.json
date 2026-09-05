@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA005BB75EZYYBNCY6N9",
+  "parent": "im_01KDVDNA00BG8ZDG4BY2P7MHZ9",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-DREEGEYF-ETGC",
+      "qty": 1,
+      "unit_amount": 129900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 133900,
+  "currency": "INR",
+  "cart_hash": "sha256:4a741c719ad9be91544e9beb7a5f3211e762f0dfb1fd5970f39b613269ef8b1b",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 300000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "0F4ynfi9-VqtpmEO3-O-vErkhiDKEx1JeUfCMgf6jc4hH8DT8XDITMK6Bd_gzQ3Cw4GM_dTKOjQoQnf4BA63dw"
+}

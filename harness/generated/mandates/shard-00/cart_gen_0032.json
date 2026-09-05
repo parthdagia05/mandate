@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00XM7MZ09SVV349PHP",
+  "parent": "im_01KDVDNA000XMFXKDJPGQW65RP",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-AIRE98PZ-7PC5",
+      "qty": 1,
+      "unit_amount": 75000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 79000,
+  "currency": "INR",
+  "cart_hash": "sha256:8008b2af5ce988348f6e6123b9904f8865f36d984df44f354f64584e1220006a",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "42Yi0lCRgIY_UzmmvHrCFaggpOyuO8qdxFDvzkFJ2iRMCdRvoz2_tVCHm3R3xZ5TMVD5hDedEeLfMvOnC6XFxw"
+}

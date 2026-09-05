@@ -40,10 +40,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
-from harness.corpus import batch_b_is_open, batch_b_openings, open_batch_b
-from harness.manifest import current_hash, verify_manifest
+from harness.corpus import SEALED_BATCHES, batch_is_open, openings, open_batch
+from harness.manifest import hash_for_dataset, verify_all
 from harness.runner import CONFIGS, HEADLINE_CONFIGS
-from harness.suite import DATASETS, RUNS_DIR, SuiteResult, run_suite, select
+from harness.suite import DATASET_BATCH, DATASETS, RUNS_DIR, SuiteResult, run_suite, select
 
 __all__ = [
     "ABLATABLE",
@@ -127,6 +127,10 @@ class MatrixResult:
     #: Set when the corpus moved during the matrix. Not deleted — the lines are
     #: still evidence of something — but it may not be published.
     corpus_drift: list[str] = field(default_factory=list)
+    #: ``dataset -> manifest hash``. A matrix may span the hand-written corpus
+    #: and the generated one, and the two have separate manifests on purpose;
+    #: one hash for a mixed matrix would name one corpus and imply the other.
+    corpus_manifests: dict[str, str] = field(default_factory=dict)
 
     def cell(self, dataset: str, config: str) -> MatrixCell | None:
         for entry in self.cells:
@@ -144,6 +148,7 @@ class MatrixResult:
             "seed": self.seed,
             "model": self.model,
             "corpus_manifest": self.corpus_manifest,
+            "corpus_manifests": dict(self.corpus_manifests),
             "datasets": list(self.datasets),
             "configs": list(self.configs),
             "started_at": self.started_at,
@@ -247,22 +252,39 @@ def _tag(records: Iterable[dict[str, Any]], dataset: str) -> list[dict[str, Any]
     return [{**record, "dataset": dataset} for record in records]
 
 
-def _open_batch_b_if_needed(
+def _open_sealed_batches(
     datasets: Sequence[str], *, reason: str, override: bool, who: str
-) -> dict[str, Any] | None:
-    if "batch_b" not in datasets:
-        return None
-    if batch_b_is_open():
-        # Already open in this process. Not re-logged: the log records
-        # *openings*, and a second call inside one process is the same opening.
-        return batch_b_openings()[-1] if batch_b_openings() else None
-    if not reason.strip():
-        raise ValueError(
-            "a matrix over batch B needs a reason; batch B is the held-out set "
-            "and the reason goes in harness/attacks/openings.jsonl beside the "
-            "timestamp, which is what makes 'opened once' checkable"
-        )
-    return open_batch_b(reason, override=override, who=who)
+) -> list[dict[str, Any]]:
+    """Open every held-out batch this matrix would read, and log each opening.
+
+    Per batch, because there are two held-out sets now and they are two
+    separate claims: opening ``gen-b`` says nothing about ``b``, and a guard
+    that treated one opening as unsealing both would let the generated corpus's
+    measurement quietly consume the hand-written one's held-out status.
+    """
+    wanted = [
+        DATASET_BATCH[d]
+        for d in datasets
+        if DATASET_BATCH.get(d) in SEALED_BATCHES
+    ]
+    entries: list[dict[str, Any]] = []
+    for batch in wanted:
+        if batch_is_open(batch):
+            # Already open in this process. Not re-logged: the log records
+            # *openings*, and a second call inside one process is the same one.
+            prior = openings(batch)
+            if prior:
+                entries.append(prior[-1])
+            continue
+        if not reason.strip():
+            raise ValueError(
+                f"a matrix over batch {batch!r} needs a reason; it is a "
+                "held-out set and the reason goes in "
+                "harness/attacks/openings.jsonl beside the timestamp, which is "
+                "what makes 'opened once' checkable"
+            )
+        entries.append(open_batch(batch, reason, override=override, who=who))
+    return entries
 
 
 def run_matrix(
@@ -292,17 +314,22 @@ def run_matrix(
         if config not in CONFIGS:
             raise ValueError(f"unknown config {config!r}; known: {list(CONFIGS)}")
 
-    manifest, drift = verify_manifest()
+    drift = verify_all()
     if drift:
         raise RuntimeError(
-            "the corpus does not match harness/manifest.json, so nothing this "
-            "matrix produced could be published (REQ-11):\n  " + "\n  ".join(drift)
+            "a corpus does not match its manifest, so nothing this matrix "
+            "produced could be published (REQ-11):\n  " + "\n  ".join(drift)
         )
-    manifest = current_hash()
+    # One matrix may span both corpora; the id and the record carry the hash of
+    # each corpus it actually touched, because a single "corpus_manifest" over a
+    # mixed matrix would name one of two and quietly imply the other.
+    manifests = {dataset: hash_for_dataset(dataset) for dataset in datasets}
+    manifest = manifests[datasets[0]]
 
-    opening = _open_batch_b_if_needed(
+    opened = _open_sealed_batches(
         datasets, reason=reason, override=override, who=who
     )
+    opening = opened[0] if opened else None
 
     from kernel.canonical import sha256_of
 
@@ -313,6 +340,7 @@ def run_matrix(
             "seed": seed,
             "model": model,
             "corpus_manifest": manifest,
+            "corpus_manifests": dict(sorted(manifests.items())),
             "limit": limit,
         }
     )
@@ -329,7 +357,8 @@ def run_matrix(
         configs=tuple(configs),
         started_at=_now(),
         batch_b_opening=opening,
-        batch_b_openings=batch_b_openings(),
+        batch_b_openings=openings(),
+        corpus_manifests=dict(sorted(manifests.items())),
     )
 
     for dataset in datasets:
@@ -399,13 +428,12 @@ def run_ablation(
     if bad_modes:
         raise ValueError(f"unknown ablation mode(s) {bad_modes}")
 
-    manifest, drift = verify_manifest()
+    drift = verify_all()
     if drift:
         raise RuntimeError(
-            "the corpus does not match harness/manifest.json (REQ-11):\n  "
-            + "\n  ".join(drift)
+            "a corpus does not match its manifest (REQ-11):\n  " + "\n  ".join(drift)
         )
-    manifest = current_hash()
+    manifest = hash_for_dataset(dataset)
 
     from kernel.canonical import sha256_of
 
@@ -539,6 +567,7 @@ def load_matrix(directory: Path) -> MatrixResult:
         batch_b_opening=body.get("batch_b_opening"),
         batch_b_openings=list(body.get("batch_b_openings", [])),
         corpus_drift=list(body.get("corpus_drift", [])),
+        corpus_manifests=dict(body.get("corpus_manifests", {})),
     )
     for cell in body["cells"]:
         path = directory / cell["records"]

@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00JTN7RXCHJBX13A92",
+  "parent": "im_01KDVDNA00XJPBXNQY6T9MMPBB",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-DREEBBWD-WEFT",
+      "qty": 1,
+      "unit_amount": 159900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 163900,
+  "currency": "INR",
+  "cart_hash": "sha256:c04d290478c354616ad55615fc32815f5a806b6e52445af5e4d9341d1bb66ac1",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "DnN6a1NFc2xAIOIWoe51QfwPQxSbFzV93OKm6sEWw22OtZZH6mGmMxV4-O6vZnJYjX_exHo3xBpbcikKBcKu5g"
+}

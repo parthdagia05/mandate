@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 153800
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-LJGE72DS-9A9H",
+      "unit_amount": 49900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "FABE8YQFHSUDYRC3"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-02/cart_gen_0177.json",
+    "intent": "harness/generated/mandates/shard-02/intent_gen_0177.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "khushali crepe self design,",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-FABE8YQF-HSUD",
+  "task_id": "gen-0177",
+  "utterance": "Order the Khushali Crepe Self Design, Printed Salwar Suit Dupatta Material from GenMart. Pay GenMart, nobody else.",
+  "wants": "khushali crepe self design, printed salwar suit dupatta material"
+}

@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 463900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-CRTECN2Q-YKPM",
+      "unit_amount": 280000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "automotive",
+    "per_txn_cap": 500000,
+    "source_pid": "CCVE6FQUJHNHQVNQ"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-01/cart_gen_0117.json",
+    "intent": "harness/generated/mandates/shard-01/intent_gen_0117.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "rainfun car cover for",
+  "scope": {
+    "allowed_categories": [
+      "automotive",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 2000000,
+    "max_transactions": 3,
+    "per_txn_cap": 500000,
+    "recurring": false
+  },
+  "sku": "SK-CCVE6FQU-JHNH",
+  "task_id": "gen-0117",
+  "utterance": "Order the Rainfun Car Cover For 800 from GenMart with standard delivery. Pay GenMart only.",
+  "wants": "rainfun car cover for 800"
+}

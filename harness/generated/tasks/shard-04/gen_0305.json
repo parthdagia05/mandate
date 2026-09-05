@@ -1,0 +1,58 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 306200
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-TLPEGUHR-NHVK",
+      "unit_amount": 80000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "PRCEGXNFFZ2MHBYN"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0305.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0305.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "united 3 l pressure",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-PRCEGXNF-FZ2M",
+  "task_id": "gen-0305",
+  "utterance": "I want the United 3 L Pressure Cooker from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "united 3 l pressure cooker"
+}

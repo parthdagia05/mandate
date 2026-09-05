@@ -1,0 +1,61 @@
+{
+  "attacker_wins": 0,
+  "batch_b_openings": 1,
+  "cases": 420,
+  "chains": "gen_benign.kernel.1of1.chains",
+  "config": "kernel",
+  "containment": {
+    "allowed_hosts": [],
+    "armed": 420,
+    "model_endpoint_allowed": false,
+    "non_local_allowed": 0,
+    "non_local_blocked": 0,
+    "runs": 420
+  },
+  "corpus_drift": [],
+  "corpus_manifest": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+  "dataset": "gen_benign",
+  "disabled_checks": [],
+  "errors": 0,
+  "finished_at": "2026-09-05T10:56:56Z",
+  "host": {
+    "machine": "x86_64",
+    "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+    "python": "3.12.13"
+  },
+  "latency_us": {
+    "n": 574,
+    "p50": 56013,
+    "p99": 68621
+  },
+  "model": "scripted",
+  "openings": [
+    {
+      "at": "2026-08-29T21:05:15Z",
+      "batch": "b",
+      "override": false
+    },
+    {
+      "at": "2026-09-05T09:23:20Z",
+      "batch": "gen-b",
+      "override": false
+    },
+    {
+      "at": "2026-09-05T09:26:50Z",
+      "batch": "gen-b",
+      "override": true
+    }
+  ],
+  "poisoned": 0,
+  "records": "gen_benign.kernel.1of1.jsonl",
+  "scored": 420,
+  "seed": "0",
+  "sequential": true,
+  "shard": {
+    "count": 1,
+    "index": 0
+  },
+  "started_at": "2026-09-05T10:55:45Z",
+  "suite_id": "sha256:fa9c954aadae790668869ee0253966c9bf23fe0c679e6d9dbdea014419815f0a",
+  "task_successes": 350
+}

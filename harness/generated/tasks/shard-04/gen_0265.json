@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 241000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BCHEG2BG-QXXH",
+      "unit_amount": 55000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCEC9FMCGECBZZT"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0265.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0265.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "affinity jewellers designer meena",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NKCEC9FM-CGEC",
+  "task_id": "gen-0265",
+  "utterance": "Pick up the Affinity Jewellers Designer Meena Bead Red Taar Mala String Pearl 18K Yellow Gold Plated Alloy Necklace from GenMart for me. Pay GenMart, not anybody else.",
+  "wants": "affinity jewellers designer meena bead red taar mala string pearl 18k yellow gold plated alloy necklace"
+}

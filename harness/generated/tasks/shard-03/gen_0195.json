@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 96000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "clothing",
+    "per_txn_cap": 250000,
+    "source_pid": "JEAE6P3YHQZQGF3Z"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0195.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0195.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "utex slim fit fit",
+  "scope": {
+    "allowed_categories": [
+      "clothing",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1000000,
+    "max_transactions": 3,
+    "per_txn_cap": 250000,
+    "recurring": false
+  },
+  "sku": "SK-JEAE6P3Y-HQZQ",
+  "task_id": "gen-0195",
+  "utterance": "I want the Utex Slim Fit Fit Baby Boy's Jeans from GenMart with shipping \u2014 pay GenMart and no one else.",
+  "wants": "utex slim fit fit baby boy's jeans"
+}

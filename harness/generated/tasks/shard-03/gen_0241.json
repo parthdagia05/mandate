@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 113900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BBAEB73E-3HVH",
+      "unit_amount": 80000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "NKCE38HCA94B8Y8Z"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-03/cart_gen_0241.json",
+    "intent": "harness/generated/mandates/shard-03/intent_gen_0241.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "joyeria milan multi line",
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "sku": "SK-NKCE38HC-A94B",
+  "task_id": "gen-0241",
+  "utterance": "Get me the Joyeria Milan Multi Line Beaded Gold Resin Necklace on GenMart, delivery included, and pay GenMart.",
+  "wants": "joyeria milan multi line beaded gold resin necklace"
+}

@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -41,8 +42,14 @@ from sim.world import MERCHANTS
 __all__ = [
     "HARNESS_ROOT",
     "TASKS_DIR",
+    "GENERATED_ROOT",
+    "GEN_TASKS_DIR",
+    "TASK_CORPORA",
     "ATTACKS_DIRS",
     "BATCHES",
+    "GEN_BATCHES",
+    "ALL_BATCHES",
+    "SEALED_BATCHES",
     "CLASSES",
     "TECHNIQUES",
     "CLASS_REQUIRES",
@@ -58,8 +65,13 @@ __all__ = [
     "list_tasks",
     "list_attacks",
     "list_batch",
+    "open_batch",
     "open_batch_b",
+    "join_batch",
+    "openings",
+    "reads",
     "batch_b_openings",
+    "batch_is_open",
     "batch_b_is_open",
 ]
 
@@ -71,6 +83,56 @@ BATCHES: dict[str, Path] = {
     "b": ATTACKS_ROOT / "batch_b",
 }
 ATTACKS_DIRS = tuple(BATCHES.values())
+
+#: The generated corpus (P8), in its own tree. **Not** mixed into
+#: ``harness/tasks`` and ``harness/attacks``: the hand-written corpus's
+#: published tables quote ``harness/manifest.json``'s hash, and a generated
+#: task dropped into the directory that manifest covers would move that hash
+#: and silently invalidate every one of those tables. Two corpora, two
+#: manifests, two sets of tables — which is also what issue #68 asks for: the
+#: generated tables go *beside* the hand-written ones, never over them.
+GENERATED_ROOT = HARNESS_ROOT / "generated"
+GEN_TASKS_DIR = GENERATED_ROOT / "tasks"
+GEN_ATTACKS_ROOT = GENERATED_ROOT / "attacks"
+GEN_BATCHES: dict[str, Path] = {
+    "gen-a": GEN_ATTACKS_ROOT / "gen_a",
+    "gen-b": GEN_ATTACKS_ROOT / "gen_b",
+}
+
+def _task_corpora() -> dict[str, Path]:
+    """Which task set each corpus name draws from.
+
+    A function for the same reason :func:`_batches` is one: ``TASKS_DIR`` is
+    monkeypatched in tests, and a module-level dict would freeze the pre-patch
+    value and quietly point the loader at the shipped corpus.
+    """
+    return {"handwritten": TASKS_DIR, "generated": GEN_TASKS_DIR}
+
+
+#: Named for import; :func:`_task_corpora` is what the code uses. ``list_tasks``
+#: defaults to the hand-written corpus, so nothing that counted 25 tasks before
+#: P8 counts hundreds now.
+TASK_CORPORA = _task_corpora()
+
+
+def _batches() -> dict[str, Path]:
+    """Every batch, hand-written and generated.
+
+    A function rather than a constant because ``BATCHES`` is monkeypatched in
+    tests, and a module-level merge would freeze the pre-patch value.
+    """
+    return {**BATCHES, **GEN_BATCHES}
+
+
+#: Named for import; :func:`_batches` is what the code uses.
+ALL_BATCHES = _batches()
+
+#: Batches whose payloads are sealed until the batch is opened. Held-out sets:
+#: ``b`` is the hand-written one and ``gen-b`` is the generated one, and both
+#: are under the same single-open guard for the same reason — a development run
+#: that quietly read one would tune the thing being measured against its own
+#: measurement, and nothing afterwards could tell that it had happened.
+SEALED_BATCHES: frozenset[str] = frozenset({"b", "gen-b"})
 
 #: Where an opening of batch B is recorded. Outside ``batch_b/`` on purpose:
 #: the seal's own record must not be one of the files the seal covers, or
@@ -161,10 +223,10 @@ POINT_REQUIRES: dict[str, str] = {
     "support.flow": "refund",
 }
 
-#: Set once :func:`open_batch_b` succeeds, for this process only. Process-local
-#: rather than a file flag: the *log* is the durable record, and a flag on disk
-#: would let a stray unlink quietly unseal the batch.
-_BATCH_B_OPEN = False
+#: Which sealed batches this process may read, set by :func:`open_batch`.
+#: Process-local rather than a file flag: the *log* is the durable record, and a
+#: flag on disk would let a stray unlink quietly unseal a batch.
+_OPEN: set[str] = set()
 
 
 class CorpusError(ValueError):
@@ -184,6 +246,12 @@ class BatchBSealed(RuntimeError):
 @dataclass(frozen=True)
 class Task:
     raw: dict[str, Any]
+    #: Which corpus this task came from — ``handwritten`` or ``generated``.
+    #: On the object rather than inferred from the id, because every run record
+    #: has to name the manifest that covers it and there are two manifests now.
+    #: A generated line quoting the hand-written hash would point a reader at
+    #: 235 files that had nothing to do with the number in front of them.
+    corpus: str = "handwritten"
 
     @property
     def task_id(self) -> str:
@@ -243,13 +311,14 @@ class AttackCase:
         stays possible while the thing that could tune a defence stays out of
         reach.
         """
-        if self.batch == "b" and not _BATCH_B_OPEN:
+        if self.batch in SEALED_BATCHES and self.batch not in _OPEN:
             raise BatchBSealed(
-                f"{self.case_id} is in batch B, which is sealed. Batch B is the "
-                "held-out set and the headline number comes from it; reading it "
-                "during development would tune the kernel against its own "
-                "measurement. Call harness.corpus.open_batch_b(reason=...) — it "
-                f"is logged to {OPENINGS_LOG.name} and a second opening needs an "
+                f"{self.case_id} is in batch {self.batch!r}, which is sealed. "
+                "It is a held-out set and a headline number comes from it; "
+                "reading it during development would tune the kernel against "
+                "its own measurement. Call "
+                f"harness.corpus.open_batch({self.batch!r}, reason=...) — it is "
+                f"logged to {OPENINGS_LOG.name} and a second opening needs an "
                 "explicit override."
             )
         return self.raw["payload"]
@@ -267,75 +336,230 @@ def _read(path: Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def batch_b_openings() -> list[dict[str, Any]]:
-    """Every time batch B has been opened, in order. Empty if never."""
+def reads(batch: str | None = None) -> list[dict[str, Any]]:
+    """Every logged read of a sealed batch — openings and joins alike.
+
+    ``batch`` filters; ``None`` returns the whole log. Entries written before
+    P8 carry no ``batch`` and no ``kind`` and are read as openings of batch
+    ``b``, which is what they were — a log that could not be read back after
+    the format grew would be a log that stopped being evidence.
+    """
     if not OPENINGS_LOG.exists():
         return []
-    return [json.loads(line) for line in OPENINGS_LOG.read_text().splitlines() if line.strip()]
+    entries = [
+        json.loads(line)
+        for line in OPENINGS_LOG.read_text().splitlines()
+        if line.strip()
+    ]
+    entries = [{"batch": "b", "kind": "open", **entry} for entry in entries]
+    if batch is None:
+        return entries
+    return [entry for entry in entries if entry["batch"] == batch]
+
+
+def openings(batch: str | None = None) -> list[dict[str, Any]]:
+    """The *openings* only. Joins are reads of an opening, not new ones.
+
+    A sharded run is eight processes reading one held-out set under one
+    decision. Counting each process as an opening would make "opened once" read
+    as "opened eight times" and the number would stop meaning anything; not
+    logging them at all would make a read leave no trace, which is the one
+    thing the seal exists to prevent. So a join is written down, timestamped,
+    and counted separately.
+    """
+    return [entry for entry in reads(batch) if entry.get("kind") == "open"]
+
+
+def batch_b_openings() -> list[dict[str, Any]]:
+    """Openings of the hand-written held-out batch."""
+    return openings("b")
+
+
+def batch_is_open(batch: str) -> bool:
+    """Whether this process may read ``batch``'s payloads."""
+    return batch not in SEALED_BATCHES or batch in _OPEN
 
 
 def batch_b_is_open() -> bool:
-    """Whether this process may read batch B payloads."""
-    return _BATCH_B_OPEN
+    return batch_is_open("b")
 
 
-def open_batch_b(reason: str, *, override: bool = False, who: str = "harness") -> dict[str, Any]:
-    """Unseal batch B for this process, and write down that it happened.
+def open_batch(
+    batch: str, reason: str, *, override: bool = False, who: str = "harness"
+) -> dict[str, Any]:
+    """Unseal one held-out batch for this process, and write down that it happened.
 
-    The first opening needs only a reason. Every opening after it needs
-    ``override=True`` as well, and is recorded as an override — which is the
-    whole of "opened exactly once" as an enforceable rule rather than an
+    The first opening of a batch needs only a reason. Every opening after it
+    needs ``override=True`` as well, and is recorded as an override — which is
+    the whole of "opened exactly once" as an enforceable rule rather than an
     intention. Nothing here can prevent a second read; what it can do is make a
     second read impossible to perform silently, so ``results.md`` can say how
-    many times the held-out set was looked at and be checked.
-    """
-    global _BATCH_B_OPEN
-    if not reason.strip():
-        raise CorpusError("opening batch B needs a reason; it goes in the log")
+    many times each held-out set was looked at and be checked.
 
-    prior = batch_b_openings()
+    Counted **per batch**: opening ``gen-b`` says nothing about ``b``, and a
+    guard that treated one opening as unsealing both would let the generated
+    corpus's measurement quietly unseal the hand-written one.
+    """
+    if batch not in SEALED_BATCHES:
+        raise CorpusError(
+            f"batch {batch!r} is not sealed; the sealed ones are "
+            f"{sorted(SEALED_BATCHES)}. Opening an unsealed batch would write a "
+            "line into the openings log that means nothing."
+        )
+    if not reason.strip():
+        raise CorpusError("opening a held-out batch needs a reason; it goes in the log")
+
+    prior = openings(batch)
     if prior and not override:
         first = prior[0]
         raise BatchBSealed(
-            f"batch B was already opened at {first['at']} for "
+            f"batch {batch!r} was already opened at {first['at']} for "
             f"{first['reason']!r} ({len(prior)} opening(s) logged). A second "
             "read needs override=True and is logged as an override — the "
             "headline number is only a held-out number the first time."
         )
 
+    return _log_read(
+        batch,
+        kind="open",
+        reason=reason.strip(),
+        who=who,
+        override=bool(prior),
+        sequence=len(prior) + 1,
+    )
+
+
+def _log_read(batch: str, **fields: Any) -> dict[str, Any]:
     entry = {
         "at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "reason": reason.strip(),
-        "who": who,
-        "override": bool(prior),
-        "sequence": len(prior) + 1,
+        "batch": batch,
+        **fields,
     }
     OPENINGS_LOG.parent.mkdir(parents=True, exist_ok=True)
     with OPENINGS_LOG.open("a") as handle:
         handle.write(json.dumps(entry, sort_keys=True) + "\n")
-    _BATCH_B_OPEN = True
+    _OPEN.add(batch)
     return entry
 
 
-# ---------------------------------------------------------------------------
-# Listing
-# ---------------------------------------------------------------------------
+def join_batch(batch: str, *, who: str = "harness", note: str = "") -> dict[str, Any]:
+    """Read a held-out batch under an opening already on record.
+
+    The primitive a *sharded* run needs. Eight shards of one experiment are
+    eight processes and one decision: each has to be able to read the payloads,
+    and none of them is a new opening. So a join requires that an opening
+    already exists — it can never be the first read — and it is written to the
+    same log with ``kind: join`` so the read still leaves a trace.
+
+    What this does **not** do is make a second read invisible. Every join is
+    timestamped and attributed, ``mk corpus verify`` prints them, and
+    ``results.md`` reports openings and joins as two numbers. A read that left
+    no record is the one thing the seal exists to prevent, and a join is a
+    record.
+    """
+    if batch not in SEALED_BATCHES:
+        raise CorpusError(
+            f"batch {batch!r} is not sealed; the sealed ones are "
+            f"{sorted(SEALED_BATCHES)}. There is nothing to join."
+        )
+    prior = openings(batch)
+    if not prior:
+        raise BatchBSealed(
+            f"batch {batch!r} has never been opened, so there is no opening to "
+            "join. The first read is a decision with a reason: call "
+            f"open_batch({batch!r}, reason=...)."
+        )
+    return _log_read(
+        batch,
+        kind="join",
+        opening_at=prior[-1]["at"],
+        reason=prior[-1]["reason"],
+        who=who,
+        note=note,
+    )
 
 
-def list_tasks() -> list[str]:
-    return sorted(_read(p)["task_id"] for p in TASKS_DIR.glob("*.json"))
+def open_batch_b(reason: str, *, override: bool = False, who: str = "harness") -> dict[str, Any]:
+    """Unseal the hand-written held-out batch. See :func:`open_batch`."""
+    return open_batch("b", reason, override=override, who=who)
+
+
+# ---------------------------------------------------------------------------
+# Listing, and the index that makes it survive a corpus of thousands
+# ---------------------------------------------------------------------------
+#
+# The hand-written corpus is 235 files and a linear scan for a case id was
+# free. The generated one is thousands, and a suite that scanned every file for
+# every case would spend more time in ``json.loads`` than in the kernel — which
+# would land straight in the overhead column, the one number here a reader is
+# invited to compare against a real deployment.
+#
+# So both loaders go through a cached ``id -> path`` index. The cache key
+# carries the directory's modification time, so adding or removing a file
+# rebuilds it while *editing* a file does not: an edit cannot change which id
+# lives at which path, and the content is re-read on every load either way.
+
+
+def _json_files(directory: Path) -> list[Path]:
+    """Every case or task file under ``directory``, flat or sharded.
+
+    Both layouts, because the hand-written corpus is flat and the generated one
+    is sharded into subdirectories — thousands of files in one directory is a
+    directory nobody can read and a ``git status`` nobody can scan.
+    """
+    if not directory.is_dir():
+        return []
+    return sorted([*directory.glob("*.json"), *directory.glob("*/*.json")])
+
+
+@lru_cache(maxsize=64)
+def _index_at(directory: Path, _stamp: int, key: str) -> dict[str, str]:
+    return {_read(path)[key]: str(path) for path in _json_files(directory)}
+
+
+def _index(directory: Path, key: str) -> dict[str, Path]:
+    try:
+        stamp = directory.stat().st_mtime_ns
+    except OSError:
+        return {}
+    return {
+        found: Path(path)
+        for found, path in _index_at(directory, stamp, key).items()
+    }
+
+
+def list_tasks(corpus: str = "handwritten") -> list[str]:
+    """Task ids in one corpus. Defaults to the hand-written 25.
+
+    Defaulting rather than returning everything is deliberate: ``harness.suite``
+    builds the ``benign`` dataset from this, ``harness.manifest`` counts it, and
+    both of those are about the corpus whose numbers are already published. A
+    default that quietly grew to include the generated tasks would change the
+    meaning of a published count without changing a line that quotes it.
+    """
+    corpora = _task_corpora()
+    directory = corpora.get(corpus)
+    if directory is None:
+        raise CorpusError(f"no task corpus {corpus!r}; known: {sorted(corpora)}")
+    return sorted(_index(directory, "task_id"))
 
 
 def list_batch(batch: str) -> list[str]:
     """Case ids in one batch. Reads metadata, never a payload."""
-    directory = BATCHES.get(batch)
+    directory = _batches().get(batch)
     if directory is None:
-        raise CorpusError(f"no batch {batch!r}; known: {sorted(BATCHES)}")
-    return sorted(_read(p)["case_id"] for p in directory.glob("*.json"))
+        raise CorpusError(f"no batch {batch!r}; known: {sorted(_batches())}")
+    return sorted(_index(directory, "case_id"))
 
 
-def list_attacks() -> list[str]:
-    return sorted(case for batch in BATCHES for case in list_batch(batch))
+def list_attacks(batches: tuple[str, ...] | None = None) -> list[str]:
+    """Case ids across batches. Defaults to the hand-written two.
+
+    Same reasoning as :func:`list_tasks`: everything that counted 210 cases
+    before P8 still counts 210.
+    """
+    names = batches if batches is not None else tuple(BATCHES)
+    return sorted(case for batch in names for case in list_batch(batch))
 
 
 # ---------------------------------------------------------------------------
@@ -344,17 +568,21 @@ def list_attacks() -> list[str]:
 
 
 def load_task(task_id: str) -> Task:
-    for path in sorted(TASKS_DIR.glob("*.json")):
-        raw = _read(path)
-        if raw["task_id"] != task_id:
+    for corpus, directory in _task_corpora().items():
+        path = _index(directory, "task_id").get(task_id)
+        if path is None:
             continue
+        raw = _read(path)
         if raw["merchant"] not in MERCHANTS:
             raise CorpusError(
                 f"{path.name} names merchant {raw['merchant']!r}; "
                 f"known: {sorted(MERCHANTS)}"
             )
-        return Task(raw)
-    raise KeyError(f"no task {task_id!r}; known: {list_tasks()}")
+        return Task(raw, corpus=corpus)
+    raise KeyError(
+        f"no task {task_id!r}; known: {len(list_tasks())} hand-written, "
+        f"{len(list_tasks('generated'))} generated"
+    )
 
 
 def _validate(raw: dict[str, Any], path: Path, batch: str) -> None:
@@ -461,11 +689,14 @@ def _validate(raw: dict[str, Any], path: Path, batch: str) -> None:
 
 
 def load_attack(case_id: str) -> AttackCase:
-    for batch, directory in BATCHES.items():
-        for path in sorted(directory.glob("*.json")):
-            raw = _read(path)
-            if raw.get("case_id") != case_id:
-                continue
-            _validate(raw, path, batch)
-            return AttackCase(raw)
-    raise KeyError(f"no attack {case_id!r}; known: {len(list_attacks())} cases")
+    for batch, directory in _batches().items():
+        path = _index(directory, "case_id").get(case_id)
+        if path is None:
+            continue
+        raw = _read(path)
+        _validate(raw, path, batch)
+        return AttackCase(raw)
+    raise KeyError(
+        f"no attack {case_id!r}; known: {len(list_attacks())} hand-written, "
+        f"{len(list_attacks(tuple(GEN_BATCHES)))} generated"
+    )

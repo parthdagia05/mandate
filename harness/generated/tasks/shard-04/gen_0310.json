@@ -1,0 +1,52 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 103900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "electronics",
+    "per_txn_cap": 400000,
+    "source_pid": "PWBEH239K4WVXXMM"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-04/cart_gen_0310.json",
+    "intent": "harness/generated/mandates/shard-04/intent_gen_0310.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "mobiware mw5b mobiware ultra",
+  "scope": {
+    "allowed_categories": [
+      "electronics",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-PWBEH239-K4WV",
+  "task_id": "gen-0310",
+  "utterance": "Buy me the mobiware mw5b mobiware ultra slim 5000mah powerbank 5000 mAh on GenMart with delivery. The payee is GenMart.",
+  "wants": "mobiware mw5b mobiware ultra slim 5000mah powerbank 5000 mah"
+}

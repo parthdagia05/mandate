@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA0074E4ZQPM4YEXAWWD",
+  "parent": "im_01KDVDNA00FXYYGTGJQ1G76TF2",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-NKCEAPCW-CAGE",
+      "qty": 1,
+      "unit_amount": 43900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 47900,
+  "currency": "INR",
+  "cart_hash": "sha256:4face1c45be4e2eb3c37a344739e4ca23c5ae29bf3f866c311c2305e6390e43d",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 3550000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "15ItAg-Oh5dcFw7kO8yECt6vHiHiTLBLbCUCJYwH0NFzmTGUtOdIJuC_9vgoOiSVqF054XM-RN6ksxQzJEWJSw"
+}

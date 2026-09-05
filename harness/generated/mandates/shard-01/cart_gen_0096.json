@@ -1,0 +1,31 @@
+{
+  "mandate_id": "cm_01KDVDNA00G49Y7VFG94P9QHFP",
+  "parent": "im_01KDVDNA00QRXXYKYVHN4QWFFW",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-BRHEDHAU-ZJJN",
+      "qty": 1,
+      "unit_amount": 89900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "total_amount": 93900,
+  "currency": "INR",
+  "cart_hash": "sha256:80dee9686371ef11433f002a88f7ca047a801cd14ebae66ecf7aae214227240e",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 400000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "q3TkPwLpxroreqdADXWJRkd_lrzlh1pB-zi-vE9rrhJjUPGW1MxVBpePjTsxbPBtaMh6VlJLA8p7_WTrl1rEUQ"
+}

@@ -1,0 +1,146 @@
+{
+  "files": {
+    "gen_a.agent-guard.1of1.jsonl": {
+      "bytes": 3008780,
+      "sha256": "sha256:8d7bddc141e1ee7f4e334ca445b31bd131c122f3709f3799c0e9dc5926d2a9da"
+    },
+    "gen_a.agent-guard.1of1.meta.json": {
+      "bytes": 1350,
+      "sha256": "sha256:6e0e809e05d23fb0de2b7346337df7f4797855179f827205d49ea5f160b6b82d"
+    },
+    "gen_a.kernel.1of1.jsonl": {
+      "bytes": 3106914,
+      "sha256": "sha256:c0fbb7ab3424361d2818fa30451e4a0e071b15f2351a95e0184eea6495a457bd"
+    },
+    "gen_a.kernel.1of1.meta.json": {
+      "bytes": 1363,
+      "sha256": "sha256:3a75ff4cb88979037fad79d5a6a765abc8f4bd76f36eb4a60b4550bd66453100"
+    },
+    "gen_a.kernel_agent-guard.1of1.jsonl": {
+      "bytes": 3793278,
+      "sha256": "sha256:02b0f2177a1348a694317d276e39d5701a06e554ba999d8a4d36442a4c7013e3"
+    },
+    "gen_a.kernel_agent-guard.1of1.meta.json": {
+      "bytes": 1365,
+      "sha256": "sha256:7c484d5ec2d7be4ad1323c840577725a1391448e2054184008d648f27a5c5d20"
+    },
+    "gen_a.model-only.1of1.jsonl": {
+      "bytes": 2769487,
+      "sha256": "sha256:0581d0d983f54feb42c916465342de2f0eea87937f466265d6fd932cc26504f6"
+    },
+    "gen_a.model-only.1of1.meta.json": {
+      "bytes": 1348,
+      "sha256": "sha256:5ae6fc685693adaf89ce76ef4708f791c97a1f3fa86be31e27e96eb839eb4845"
+    },
+    "gen_a.undefended.1of1.jsonl": {
+      "bytes": 2448069,
+      "sha256": "sha256:83f88c26deba46dd95f8e4cea056f31aa939d0df8ad8b4c25fd3c84061cc4498"
+    },
+    "gen_a.undefended.1of1.meta.json": {
+      "bytes": 1347,
+      "sha256": "sha256:c0e5a884748fbd9a33998cf041238ffec8f564add1fda07e7bf72c36246c3b87"
+    },
+    "gen_benign.agent-guard.1of1.jsonl": {
+      "bytes": 1430680,
+      "sha256": "sha256:8dec070ba6ce6d176285f56c99ff414a40e7b2213b90f80d8f41501b4be423a0"
+    },
+    "gen_benign.agent-guard.1of1.meta.json": {
+      "bytes": 1357,
+      "sha256": "sha256:c992f026d608fbafa75bef0560f4184bfbe5bdaa019156e8f60f18bb306d87a8"
+    },
+    "gen_benign.kernel.1of1.jsonl": {
+      "bytes": 1743756,
+      "sha256": "sha256:9bf530951c1911de3213e1711e052c097e5de1057bcf548d05c0d1e821ac1b2b"
+    },
+    "gen_benign.kernel.1of1.meta.json": {
+      "bytes": 1377,
+      "sha256": "sha256:a4183c97d94ef82f528aa1e209ac5908db3e7878ea327417813af15501f3d887"
+    },
+    "gen_benign.kernel_agent-guard.1of1.jsonl": {
+      "bytes": 1982067,
+      "sha256": "sha256:a09750901279cf3a47b480616bc77a799aaeff0c701cf9da7fdf0f77cb467936"
+    },
+    "gen_benign.kernel_agent-guard.1of1.meta.json": {
+      "bytes": 1374,
+      "sha256": "sha256:8c919bef809fbcf1a57e69972249da33d332b7ef6518d968cce9b5ec3efefb53"
+    },
+    "gen_benign.model-only.1of1.jsonl": {
+      "bytes": 1330358,
+      "sha256": "sha256:f8e2cac37bd58f16aa760c9662764833bda438c1784f3f29b8aca0ccdf8a5017"
+    },
+    "gen_benign.model-only.1of1.meta.json": {
+      "bytes": 1355,
+      "sha256": "sha256:a96e05518e977d5620f1aa0af11d145fd4cc98b6161cbc73c480f666756a0a6a"
+    },
+    "gen_benign.undefended.1of1.jsonl": {
+      "bytes": 1177191,
+      "sha256": "sha256:c1789a94db8b065be86a676a0b352a05068abc537512a739bc8ab9cd719bfdb5"
+    },
+    "gen_benign.undefended.1of1.meta.json": {
+      "bytes": 1355,
+      "sha256": "sha256:666b8337a705e1b9cf9f8f9962338310c650cdde7ce91e8d863ea1e1300a3127"
+    }
+  },
+  "run": {
+    "arms": [
+      "undefended",
+      "model-only",
+      "kernel",
+      "agent-guard",
+      "kernel+agent-guard"
+    ],
+    "corpus": {
+      "generated": "sha256:47065d5f08dc82197c558fc3f14b6e2f8e5fdf3d31bc36182b38900da639dff1",
+      "handwritten": "sha256:f87e67de9b4c757e00fd8fde7646f0bdf6073d820e6ab162e948c21ea15f8ba7"
+    },
+    "datasets": {
+      "injection_corpus": {
+        "digest": "sha256:eec887f5663a60658b06ec059580f716b0eca06077755c74911ebc081883ab61",
+        "licence": "MIT",
+        "ok": true,
+        "pin": "krishnayadav456wrsty/prompt-injection-and-jailbreak-detection-dataset@v3"
+      },
+      "injection_corpus_2": {
+        "digest": "sha256:ec422bc87eb50a7faed6e33c67aa5683834bebe519362d304e280e0a53053c14",
+        "licence": "MIT",
+        "ok": true,
+        "pin": "shreyashautomation/llm-jailbreak-prompt-dataset@v1"
+      },
+      "retail_catalogue": {
+        "digest": "sha256:8da249f46f436c78293796672f95c3d423a01606c57b87f2ab7cc1d5eb243f42",
+        "licence": "CC BY-SA 4.0",
+        "ok": true,
+        "pin": "PromptCloudHQ/flipkart-products@v1"
+      }
+    },
+    "env": {
+      "attached": "/kaggle/input/datasets/parthdagia/mandate-repo",
+      "cryptography": "43.0.3",
+      "internet_enabled": false,
+      "machine": "x86_64",
+      "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+      "pydantic": "2.12.3",
+      "python": "3.12.13",
+      "repo": "/tmp/mandate/repo"
+    },
+    "model": "scripted",
+    "per_case_s": 0.133,
+    "plan": [
+      "gen_benign",
+      "gen_a"
+    ],
+    "seed": "0",
+    "session_containment": {
+      "allowed_hosts": [],
+      "breaches": [],
+      "enforced": true,
+      "local_connections": 0,
+      "model_endpoint_allowed": false,
+      "non_local_allowed": 0,
+      "non_local_blocked": 0
+    }
+  },
+  "shards": [
+    "1of1"
+  ]
+}

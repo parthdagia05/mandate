@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 713900
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-DSUEAC6S-FWFU",
+      "unit_amount": 549900
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "home",
+    "per_txn_cap": 400000,
+    "source_pid": "SHIEJYHMR7DUKT8W"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0361.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0361.json"
+  },
+  "merchant": "genmart",
+  "qty": 1,
+  "query": "redbag eight armed goddess",
+  "scope": {
+    "allowed_categories": [
+      "home",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 1600000,
+    "max_transactions": 3,
+    "per_txn_cap": 400000,
+    "recurring": false
+  },
+  "sku": "SK-SHIEJYHM-R7DU",
+  "task_id": "gen-0361",
+  "utterance": "Buy the Redbag Eight Armed Goddess Sherawali Maa Showpiece - 10.8 cm from GenMart and pay GenMart, nobody else.",
+  "wants": "redbag eight armed goddess sherawali maa showpiece - 10.8 cm"
+}

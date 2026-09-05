@@ -1,0 +1,36 @@
+{
+  "mandate_id": "cm_01KDVDNA0015EYH84TVAGJXVXJ",
+  "parent": "im_01KDVDNA00F1X9FPPXYFXV6D92",
+  "payee": {
+    "type": "vpa",
+    "value": "genmart@upi",
+    "merchant_id": "genmart"
+  },
+  "line_items": [
+    {
+      "sku": "SK-BRADWDT4-ZDKG",
+      "qty": 1,
+      "unit_amount": 99900
+    },
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    },
+    {
+      "qty": 1,
+      "sku": "SK-BRAEGGER-K8KP",
+      "unit_amount": 49900
+    }
+  ],
+  "total_amount": 153800,
+  "currency": "INR",
+  "cart_hash": "sha256:99c18c31044056a391f17c36f8e8bd02a565067e5d0d50f05ba8a76d2448acea",
+  "instrument": {
+    "token": "tok_scoped_01",
+    "max_amount": 250000,
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "confirmed_by": "user",
+  "sig": "TacoHMUCxejkJWfsWh1RoC4SFQOGcvyfLuukJmdd7r95c75FAyz2fH83rB4yTPZgq8ZKQaVgiPyW9lqlek9VcA"
+}

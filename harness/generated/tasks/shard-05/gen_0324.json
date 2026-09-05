@@ -1,0 +1,56 @@
+{
+  "expect": {
+    "captures": 1,
+    "max_transactions": 3,
+    "payee": {
+      "type": "vpa",
+      "value": "genmart@upi"
+    },
+    "recurring": false,
+    "refund_destination": {
+      "type": "vpa",
+      "value": "ananya@upi"
+    },
+    "total_paise": 4859000
+  },
+  "extra_line_items": [
+    {
+      "qty": 1,
+      "sku": "SK-SHIP-STD",
+      "unit_amount": 4000
+    }
+  ],
+  "generated": {
+    "cap_policy": "G-1",
+    "category": "jewellery",
+    "per_txn_cap": 3550000,
+    "source_pid": "RNGE88Q9TECBEFMV"
+  },
+  "mandates": {
+    "cart": "harness/generated/mandates/shard-05/cart_gen_0324.json",
+    "intent": "harness/generated/mandates/shard-05/intent_gen_0324.json"
+  },
+  "merchant": "genmart",
+  "offers": true,
+  "qty": 1,
+  "query": "karatcraft triniya promise gold",
+  "refund": {
+    "topic": "refund"
+  },
+  "scope": {
+    "allowed_categories": [
+      "jewellery",
+      "shipping"
+    ],
+    "currency": "INR",
+    "max_amount": 14200000,
+    "max_transactions": 3,
+    "per_txn_cap": 3550000,
+    "recurring": false
+  },
+  "settlement_check": true,
+  "sku": "SK-RNGE88Q9-TECB",
+  "task_id": "gen-0324",
+  "utterance": "Order the Karatcraft Triniya Promise Gold Diamond 18 K Ring from GenMart. Pay GenMart, nobody else.",
+  "wants": "karatcraft triniya promise gold diamond 18 k ring"
+}
