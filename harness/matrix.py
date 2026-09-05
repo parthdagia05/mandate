@@ -544,6 +544,54 @@ def run_ablation(
     return result
 
 
+def load_ablation(directory: Path) -> AblationResult | None:
+    """Rebuild an ablation from the files ``mk ablate`` left behind.
+
+    Beside :func:`load_matrix` for the same reason and with the same contract:
+    the per-check tables in ``results.md`` have to be reproducible from disk by
+    somebody who did not run the suites. ``mk report`` reads an ablation this
+    way, and so does the artifact API (:mod:`harness.web`), which is what keeps
+    the page and the document quoting one computation rather than two.
+
+    Returns ``None`` when ``directory`` holds no ``ablation.json`` — a caller
+    asking about a directory that is not an ablation is a routine mistake, not
+    an exception.
+    """
+    directory = Path(directory)
+    index = directory / "ablation.json"
+    if not index.exists():
+        return None
+    body = json.loads(index.read_text())
+
+    def read(path: Path) -> list[dict[str, Any]]:
+        return _tag(_read_jsonl(path), body["dataset"])
+
+    result = AblationResult(
+        dataset=body["dataset"],
+        seed=body["seed"],
+        model=body["model"],
+        corpus_manifest=body["corpus_manifest"],
+        out_dir=directory,
+        baseline_suite_id=body["baseline_suite_id"],
+        started_at=body.get("started_at", ""),
+        finished_at=body.get("finished_at", ""),
+    )
+    result.baseline = read(directory / f"{body['dataset']}.kernel.jsonl")
+    for row in body["rows"]:
+        path = directory / row["records"]
+        result.rows.append(
+            AblationRow(
+                check_ids=tuple(row["check_ids"]),
+                label=row["label"],
+                mode=row["mode"],
+                suite_id=row["suite_id"],
+                path=path,
+                records=read(path),
+            )
+        )
+    return result
+
+
 def load_matrix(directory: Path) -> MatrixResult:
     """Rebuild a matrix from the files it left behind.
 

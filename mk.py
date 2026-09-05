@@ -32,6 +32,7 @@ import argparse
 import importlib.util
 import json
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -68,6 +69,15 @@ DATASET_CHOICES = ("benign", "batch_a", "batch_b", "gen_benign", "gen_a", "gen_b
 
 #: Where ``mk report`` writes the document unless told otherwise.
 DEFAULT_RESULTS_PATH = REPO_ROOT / "results.md"
+
+#: Where ``mk web`` looks for the built frontend, and where the runs it serves
+#: live. The frontend is a separate tree with its own toolchain (issue #82); the
+#: Python side never invokes npm, which is what keeps ``scripts/reproduce.sh``
+#: free of node.
+DEFAULT_WEB_DIST = REPO_ROOT / "web" / "dist"
+DEFAULT_WEB_HOST = "127.0.0.1"
+DEFAULT_WEB_PORT = 8090
+DEFAULT_RUNS_DIR = REPO_ROOT / "runs"
 
 __all__ = ["main"]
 
@@ -1262,45 +1272,15 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def _load_ablation(directory: Path):
-    """Rebuild an ablation from the files ``mk ablate`` left behind."""
-    from harness.matrix import AblationResult, AblationRow
+    """Rebuild an ablation from the files ``mk ablate`` left behind.
 
-    index = directory / "ablation.json"
-    if not index.exists():
-        return None
-    body = json.loads(index.read_text())
+    Delegates to :func:`harness.matrix.load_ablation`, which sits beside
+    ``load_matrix``. The artifact API loads ablations too, and two loaders would
+    eventually read the same directory into two different tables.
+    """
+    from harness.matrix import load_ablation
 
-    def read(path: Path) -> list:
-        return [
-            {**json.loads(line), "dataset": body["dataset"]}
-            for line in path.read_text().splitlines()
-            if line.strip()
-        ]
-
-    result = AblationResult(
-        dataset=body["dataset"],
-        seed=body["seed"],
-        model=body["model"],
-        corpus_manifest=body["corpus_manifest"],
-        out_dir=directory,
-        baseline_suite_id=body["baseline_suite_id"],
-        started_at=body.get("started_at", ""),
-        finished_at=body.get("finished_at", ""),
-    )
-    result.baseline = read(directory / f"{body['dataset']}.kernel.jsonl")
-    for row in body["rows"]:
-        path = directory / row["records"]
-        result.rows.append(
-            AblationRow(
-                check_ids=tuple(row["check_ids"]),
-                label=row["label"],
-                mode=row["mode"],
-                suite_id=row["suite_id"],
-                path=path,
-                records=read(path),
-            )
-        )
-    return result
+    return load_ablation(directory)
 
 
 def cmd_merge(args: argparse.Namespace) -> int:
@@ -1359,6 +1339,142 @@ def cmd_generate(args: argparse.Namespace) -> int:
     if args.seed:
         argv += ["--seed", args.seed]
     return subprocess.run(argv).returncode
+
+
+def cmd_kernel(args: argparse.Namespace) -> int:
+    """Stand the kernel up on a loopback port. Issue #89's other half.
+
+    The live demo page proxies to a kernel on ``127.0.0.1:8080`` and, until now,
+    nothing in the repository started one — ``ApiServer`` existed and only tests
+    used it. A page that tells a reader to start a kernel, in a project with no
+    command that starts a kernel, is a page nobody can use.
+
+    Three wirings matter and each is copied from ``harness/kernel_arm.py``
+    rather than invented here:
+
+    **The clock is the simulator's, not the wall.** Every signed fixture in the
+    corpus expires at ``2026-01-01T00:15:00Z``, so a kernel judging expiry by
+    real time would refuse all of them with ``MANDATE_EXPIRED`` and the demo
+    would show one true refusal for an entirely uninteresting reason.
+
+    **The database is a real file**, never ``:memory:``. ``PRAGMA
+    synchronous=FULL`` is the whole of check 9's "appended and fsynced before
+    the response returns", and an in-memory database would let that claim pass
+    a test it cannot pass on disk.
+
+    **Trust is every user key the corpus declares**, read from the fixtures and
+    not from the request. A key carried inside the object it signs is a claim
+    rather than a signature.
+    """
+    import tempfile
+
+    from kernel.api import ApiServer, KernelApi
+    from kernel.service import KernelService
+    from kernel.stores.db import connect
+    from sim.world import World
+
+    fixtures = REPO_ROOT / "fixtures"
+    mandates = sorted((fixtures / "mandates").glob("intent_*.json"))
+    if not mandates:
+        print(
+            "mk kernel: no signed intents in fixtures/mandates. "
+            "Run `python scripts/build_fixtures.py` first.",
+            file=sys.stderr,
+        )
+        return 2
+
+    pubkey = (fixtures / "keys" / "user.pub.b64u").read_text().strip()
+    trusted: dict[str, str] = {}
+    for path in mandates:
+        principal = json.loads(path.read_text()).get("principal") or {}
+        user_id = principal.get("user_id")
+        if user_id:
+            trusted[user_id] = pubkey
+
+    directory = Path(args.db) if args.db else Path(tempfile.mkdtemp(prefix="mk-kernel-"))
+    directory.mkdir(parents=True, exist_ok=True)
+
+    world = World(seed=args.seed)
+    service = KernelService(
+        conn=connect(directory / "kernel.db"),
+        clock=world.clock,
+        psp=world.psp,
+        trusted_keys=trusted,
+        client_ref="ref_live_demo",
+        sidecar_path=directory / "audit_gap.jsonl",
+    )
+
+    with ApiServer(KernelApi(service), host=args.host, port=args.port) as running:
+        host, port = running.address
+        print(f"mk kernel: http://{host}:{port}", flush=True)
+        print(f"  stores   {directory}", flush=True)
+        print(f"  clock    {world.clock.now_rfc3339()} (the simulator's, not the wall)", flush=True)
+        print(f"  trusts   {len(trusted)} principal(s) from fixtures/keys/user.pub.b64u", flush=True)
+        print("  loopback only; the peer guard refuses anything else", flush=True)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("\nmk kernel: stopped", flush=True)
+    return 0
+
+
+def cmd_web(args: argparse.Namespace) -> int:
+    """Serve the trace viewer and the read-only artifact API. Issue #83.
+
+    Read-only over what the harness already wrote, and it adds no route to the
+    kernel: ``kernel/api.py`` keeps its eight endpoints and its loopback peer
+    guard, and the one demo route (#89) is an HTTP client of ``:8080`` like the
+    harness itself. Nothing here computes a metric — every figure comes from
+    :mod:`harness.metrics`, the same functions ``results.md`` is rendered from.
+    """
+    from harness.web.api import KERNEL_URL
+    from harness.web.server import serve
+
+    runs = Path(args.runs)
+    if not runs.is_dir():
+        print(
+            f"mk web: {runs} is not a directory. Run a suite first — "
+            "`mk suite --dataset batch_a --config kernel` leaves its JSONL there.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if args.export:
+        from harness.web.export import ExportError, export
+
+        try:
+            summary = export(
+                runs,
+                Path(args.dist),
+                Path(args.export),
+                matrix=args.matrix,
+                limit=args.max_runs,
+            )
+        except ExportError as exc:
+            print(f"mk web: {exc}", file=sys.stderr)
+            return 2
+        print(f"mk web --export: {args.export}")
+        print(f"  {len(summary['files'])} files, {summary['runs_exported']} run traces")
+        if summary["runs_omitted"]:
+            print(
+                f"  {summary['runs_omitted']} traces omitted by --max-runs; "
+                "export.json records the cap so the corpus does not look smaller "
+                "than it is"
+            )
+        for manifest in summary["corpus_manifests"]:
+            print(f"  corpus  {manifest}")
+        print(f"  seeds   {', '.join(summary['seeds']) or '—'}")
+        print("  the demo page is absent: there is no kernel behind a static file")
+        return 0
+
+    return serve(
+        runs,
+        Path(args.dist),
+        host=args.host,
+        port=args.port,
+        kernel_url=args.kernel or KERNEL_URL,
+    )
 
 
 def cmd_kaggle(args: argparse.Namespace) -> int:
@@ -1786,6 +1902,77 @@ def build_parser() -> argparse.ArgumentParser:
     generate_corpus.add_argument("--force", action="store_true")
     generate_corpus.add_argument("--seed", default="p8")
     generate_corpus.set_defaults(func=cmd_generate)
+
+    kernel_cmd = sub.add_parser(
+        "kernel",
+        help="stand the kernel up on 127.0.0.1:8080, for the live demo page",
+    )
+    kernel_cmd.add_argument("--host", default="127.0.0.1")
+    kernel_cmd.add_argument("--port", type=int, default=8080)
+    kernel_cmd.add_argument(
+        "--db",
+        default=None,
+        help="directory for the SQLite file and the audit sidecar; default a temp dir",
+    )
+    kernel_cmd.add_argument(
+        "--seed",
+        default="live-demo",
+        help="seed for the simulated world whose clock and PSP the kernel uses",
+    )
+    kernel_cmd.set_defaults(func=cmd_kernel)
+
+    web = sub.add_parser(
+        "web",
+        help="serve the trace viewer and the read-only artifact API",
+    )
+    web.add_argument(
+        "--runs",
+        default=str(DEFAULT_RUNS_DIR),
+        help="directory of suite output to serve; default ./runs",
+    )
+    web.add_argument(
+        "--dist",
+        default=str(DEFAULT_WEB_DIST),
+        help="built frontend; default ./web/dist (cd web && npm ci && npm run build)",
+    )
+    web.add_argument(
+        "--host",
+        default=DEFAULT_WEB_HOST,
+        help=(
+            "default 127.0.0.1. The API reads a whole research corpus off local "
+            "disk and proxies to a payment kernel; neither belongs on a LAN"
+        ),
+    )
+    web.add_argument("--port", type=int, default=DEFAULT_WEB_PORT)
+    web.add_argument(
+        "--kernel",
+        default=None,
+        help="kernel base URL for the live demo page; default http://127.0.0.1:8080",
+    )
+    web.add_argument(
+        "--export",
+        default=None,
+        metavar="DIR",
+        help=(
+            "write a directory that opens from the filesystem with no server, "
+            "for the video and as a Kaggle artifact, instead of serving"
+        ),
+    )
+    web.add_argument(
+        "--matrix",
+        default=None,
+        help="with --export, limit the results pages to one matrix directory",
+    )
+    web.add_argument(
+        "--max-runs",
+        type=int,
+        default=None,
+        help=(
+            "with --export, cap how many run traces are written. The cap is "
+            "recorded in export.json rather than applied silently"
+        ),
+    )
+    web.set_defaults(func=cmd_web)
 
     kaggle = sub.add_parser(
         "kaggle",

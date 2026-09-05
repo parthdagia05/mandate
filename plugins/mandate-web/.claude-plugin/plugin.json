@@ -1,0 +1,15 @@
+{
+  "name": "mandate-web",
+  "version": "0.1.0",
+  "description": "Frontend architecture for the Mandate web layer: Vite + React + TypeScript over a frozen JSON export of the run records, with the honesty rules from harness/report.py carried into the UI and enforced on edit.",
+  "author": {
+    "name": "Mandate Kernel"
+  },
+  "keywords": [
+    "frontend",
+    "architecture",
+    "react",
+    "typescript",
+    "vite"
+  ]
+}
